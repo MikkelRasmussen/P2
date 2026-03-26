@@ -1,0 +1,71 @@
+function find_cheapest_price(ingredient, bilka, netto, føtex, rema) {
+    cheapest = 0
+    store = ""
+
+    price_bilka = bilka[ingredient]
+    price_netto = netto[ingredient]
+    price_føtex = netto[ingredient]
+    price_rema = netto[ingredient]
+
+    if price_bilka < all(price_netto, price_føtex, price_rema):
+        store = "bilka"
+        cheapest = price_bilka
+
+    else if price_netto < all(price_bilka, price_føtex, price_rema):
+        store = "netto"
+        cheapest = price_netto
+
+    else if price_føtex < all(price_netto, price_bilka, price_rema):
+        store = "føtex"
+        cheapest = price_føtex
+
+    else if price_rema < all(price_netto, price_føtex, price_bilka):
+        store = "rema"
+        cheapest = price_rema
+
+    else:
+        return null, null
+
+    return cheapest, store
+}
+
+
+
+function recommend(budget: float) {
+
+    # Simple parameter check
+    
+    if not budget > 0:
+        print("Budget must be above 0")
+        return None
+    
+
+
+    # Initialising the algorithms
+
+    recipes = load("recipes.sql")
+    ingredients_mapping_dk = load("indredients_mapping.json")
+    measurements_mapping_dk = load("mapping_måling.json")
+
+    bilka_prices = load("bilka.json")
+    netto_prices = load("netto.json")
+    føtex_prices = load("føtex.json")
+    rema_prices = load("rema1000.json")
+
+
+    
+    # Main
+
+    candidates = {}
+    for recipe in recipes {
+        ingredients = recipe["ingredients"]
+        name = recipe["name"]
+
+        ingredients_result = {}
+        for ingredient in ingredients {
+            cheapest_price, store = find_cheapest_price(ingredient, bilka_prices, netto_prices, føtex_prices, rema_prices)
+            ingredients_result["ingredient"] = {"store": store, "price": price}
+        }
+    }
+}
+    

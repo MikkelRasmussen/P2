@@ -20,33 +20,33 @@ const API_CONFIG = {
 // Middleware to validate API key
 const validateApiKey = (req, res, next) => {
   const providedKey = req.headers['x-api-key'] || req.query.api_key;
-  
+
   if (!providedKey) {
-    return res.status(401).json({ 
-      error: 'API key is required. Please provide it in the header (x-api-key) or query parameter (api_key)' 
+    return res.status(401).json({
+      error: 'API key is required. Please provide it in the header (x-api-key) or query parameter (api_key)'
     });
   }
-  
+
   if (providedKey !== API_CONFIG.apiKey) {
-    return res.status(403).json({ 
-      error: 'Invalid API key' 
+    return res.status(403).json({
+      error: 'Invalid API key'
     });
   }
-  
+
   next();
 };
 
 // Helper function to make API calls with retry logic
 const makeApiCall = async (endpoint, retries = 0) => {
   try {
-    const response = await axios.get(`${API_CONFIG.baseUrl}${endpoint}`, {
+    const response = await axios.get(`https://${endpoint}`, {
       headers: {
         'Authorization': `Bearer ${API_CONFIG.apiKey}`,
         'Content-Type': 'application/json'
       },
       timeout: API_CONFIG.timeout
     });
-    
+
     return response.data;
   } catch (error) {
     if (retries < API_CONFIG.maxRetries) {
@@ -54,7 +54,7 @@ const makeApiCall = async (endpoint, retries = 0) => {
       await new Promise(resolve => setTimeout(resolve, 1000 * (retries + 1))); // Exponential backoff
       return makeApiCall(endpoint, retries + 1);
     }
-    
+
     throw new Error(`Failed to fetch data from ${endpoint}: ${error.message}`);
   }
 };
@@ -63,41 +63,41 @@ const makeApiCall = async (endpoint, retries = 0) => {
 app.post('/api/fetch-multiple', validateApiKey, async (req, res) => {
   try {
     const { endpoints, basePath } = req.body;
-    
+
     if (!Array.isArray(endpoints) || endpoints.length === 0) {
-      return res.status(400).json({ 
-        error: 'Please provide a non-empty array of endpoints in the request body' 
+      return res.status(400).json({
+        error: 'Please provide a non-empty array of endpoints in the request body'
       });
     }
-    
+
     // Validate endpoints format
-    const validEndpoints = endpoints.filter(endpoint => 
+    const validEndpoints = endpoints.filter(endpoint =>
       typeof endpoint === 'string' && endpoint.trim().length > 0
     );
-    
+
     if (validEndpoints.length === 0) {
-      return res.status(400).json({ 
-        error: 'All endpoints must be non-empty strings' 
+      return res.status(400).json({
+        error: 'All endpoints must be non-empty strings'
       });
     }
-    
+
     // Build full URLs using basePath if provided
     const fullEndpoints = validEndpoints.map(endpoint => {
       const cleanEndpoint = endpoint.startsWith('/') ? endpoint : `/${endpoint}`;
       const fullUrl = basePath ? `${basePath}${cleanEndpoint}` : cleanEndpoint;
       return fullUrl;
     });
-    
+
     console.log(`Fetching data from ${fullEndpoints.length} endpoints:`, fullEndpoints);
-    
+
     // Make concurrent API calls
     const promises = fullEndpoints.map(endpoint => makeApiCall(endpoint));
     const results = await Promise.allSettled(promises);
-    
+
     // Process results
     const successfulResults = [];
     const failedResults = [];
-    
+
     results.forEach((result, index) => {
       const endpoint = fullEndpoints[index];
       if (result.status === 'fulfilled') {
@@ -114,7 +114,7 @@ app.post('/api/fetch-multiple', validateApiKey, async (req, res) => {
         });
       }
     });
-    
+
     const response = {
       success: successfulResults.length,
       failed: failedResults.length,
@@ -122,17 +122,17 @@ app.post('/api/fetch-multiple', validateApiKey, async (req, res) => {
       results: successfulResults,
       errors: failedResults
     };
-    
+
     // Log summary
     console.log(`API calls completed: ${successfulResults.length}/${fullEndpoints.length} successful`);
-    
+
     res.json(response);
-    
+
   } catch (error) {
     console.error('Error in fetch-multiple endpoint:', error);
-    res.status(500).json({ 
+    res.status(500).json({
       error: 'Internal server error while fetching data',
-      details: error.message 
+      details: error.message
     });
   }
 });
@@ -141,31 +141,31 @@ app.post('/api/fetch-multiple', validateApiKey, async (req, res) => {
 app.get('/api/fetch-single', validateApiKey, async (req, res) => {
   try {
     const { endpoint, basePath } = req.query;
-    
+
     if (!endpoint) {
-      return res.status(400).json({ 
-        error: 'Please provide an endpoint parameter' 
+      return res.status(400).json({
+        error: 'Please provide an endpoint parameter'
       });
     }
-    
+
     const cleanEndpoint = endpoint.startsWith('/') ? endpoint : `/${endpoint}`;
     const fullUrl = basePath ? `${basePath}${cleanEndpoint}` : cleanEndpoint;
-    
+
     console.log(`Fetching data from single endpoint: ${fullUrl}`);
-    
+
     const data = await makeApiCall(fullUrl);
-    
+
     res.json({
       endpoint: fullUrl,
       data,
       status: 'success'
     });
-    
+
   } catch (error) {
     console.error('Error in fetch-single endpoint:', error);
-    res.status(500).json({ 
+    res.status(500).json({
       error: 'Internal server error while fetching data',
-      details: error.message 
+      details: error.message
     });
   }
 });
@@ -185,7 +185,7 @@ app.get('/api/test-config', validateApiKey, (req, res) => {
 
 // Simple route for testing
 app.get('/api/hello', (req, res) => {
-  res.json({ 
+  res.json({
     message: 'Hello from Express!',
     timestamp: new Date().toISOString()
   });
@@ -193,7 +193,7 @@ app.get('/api/hello', (req, res) => {
 
 // Health check endpoint
 app.get('/api/health', (req, res) => {
-  res.json({ 
+  res.json({
     status: 'healthy',
     uptime: process.uptime(),
     timestamp: new Date().toISOString()
@@ -229,6 +229,14 @@ app.listen(PORT, () => {
   console.log(`\nAPI Key: ${API_CONFIG.apiKey}`);
   console.log(`Base URL: ${API_CONFIG.baseUrl}`);
 });
+
+const sql = require('./SQLHandler/SQLHandler.js');
+const sqlHandler = new sql();
+(async () => {
+  await sqlHandler.Connect("localhost", "postgres", "Post2025", 5432);
+  await sqlHandler.ImportSallingData();
+  // await sqlHandler.ImportRecipes();
+})();
 
 /*
 const path = require('path');

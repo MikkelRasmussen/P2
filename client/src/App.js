@@ -1,57 +1,27 @@
-import logo from './logo.svg';
-import './App.css';
+import "./App.css";
+import { BrowserRouter as Router, Routes, Route } from "react-router-dom";
 
-import { useEffect } from 'react';
+import Home from "./pages/Home";
+import Browse from "./pages/Browse";
+import Recipes from "./pages/Recipes";
+import Prices from "./pages/Prices";
+import GeneratePlan from "./pages/GeneratePlan";
+import ShoppingList from "./pages/ShoppingList";
+import Settings from "./pages/Settings";
 
 function App() {
-  
-  const fetchData = async () => {
-  try {
-    const response = await fetch('/api/fetch-multiple', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'x-api-key': 'SG_APIM_4A20F12K69B8YC47D1E094QEZPMW7Q73B1BZCN2PW2QF88VQ3C4G'
-      },
-      body: JSON.stringify({
-        endpoints: ['recommendations/most-bought/bilkatogo/feed',],
-        basePath: '/v1'
-      })
-    });
-    
-    const data = await response.json();
-    console.log('Success:', data.success);
-    console.log('Failed:', data.failed);
-    console.log('Results:', data.results);
-    console.log('Full response:', data);
-  } catch (error) {
-    console.error('Error:', error);
-  }
-};
-
-
-  useEffect(() => {
-    fetchData();
-  }, []);
-
-  
   return (
-    <div className="App">
-      <header className="App-header">
-        <img src={logo} className="App-logo" alt="logo" />
-        <p>
-          Edit <code>src/App.js</code> and save to reload.
-        </p>
-        <a
-          className="App-link"
-          href="https://reactjs.org"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          Learn React
-        </a>
-      </header>
-    </div>
+    <Router>
+      <Routes>
+        <Route path="/" element={<Home />} />
+        <Route path="/browse" element={<Browse />} />
+        <Route path="/recipes" element={<Recipes />} />
+        <Route path="/prices" element={<Prices />} />
+        <Route path="/generate-plan" element={<GeneratePlan />} />
+        <Route path="/shopping-list" element={<ShoppingList />} />
+        <Route path="/settings" element={<Settings />} />
+      </Routes>
+    </Router>
   );
 }
 

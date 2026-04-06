@@ -1,38 +1,264 @@
-.App {
-  text-align: center;
+body {
+  margin: 0;
+  font-family: Arial, sans-serif;
+  background-color: #f3f3f3;
 }
 
-.App-logo {
-  height: 40vmin;
-  pointer-events: none;
+* {
+  box-sizing: border-box;
 }
 
-@media (prefers-reduced-motion: no-preference) {
-  .App-logo {
-    animation: App-logo-spin infinite 20s linear;
-  }
-}
-
-.App-header {
-  background-color: #282c34;
+.home-page {
   min-height: 100vh;
+  background-color: #f3f3f3;
+  padding-bottom: 90px;
+}
+
+.hero-section {
+  background: linear-gradient(90deg, #ff5a00, #ff007f);
+  color: white;
+  padding: 24px 20px 90px 20px;
+}
+
+.hero-top {
   display: flex;
-  flex-direction: column;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.brand-title {
+  margin: 0;
+  font-size: 24px;
+  font-weight: bold;
+}
+
+.settings-icon {
+  font-size: 20px;
+}
+
+.welcome-text {
+  margin-top: 28px;
+  margin-bottom: 8px;
+  font-size: 16px;
+}
+
+.hero-heading {
+  margin: 0;
+  font-size: 22px;
+  font-weight: bold;
+}
+
+.stats-section {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 12px;
+  margin-top: -55px;
+  padding: 0 20px;
+}
+
+.stat-card {
+  background: white;
+  border-radius: 16px;
+  padding: 28px 12px;
+  text-align: center;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.12);
+}
+
+.stat-number {
+  font-size: 30px;
+  font-weight: bold;
+  color: #ff4d4d;
+  margin-bottom: 8px;
+}
+
+.stat-label {
+  color: #666;
+  font-size: 15px;
+}
+
+.discover-card {
+  margin: 24px 20px;
+  padding: 28px;
+  border-radius: 18px;
+  background: linear-gradient(90deg, #ff5a00, #ff3f6c, #f535a7);
+  color: white;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  box-shadow: 0 8px 18px rgba(0, 0, 0, 0.12);
+}
+
+.discover-content h3 {
+  margin: 0 0 12px 0;
+  font-size: 20px;
+}
+
+.discover-content p {
+  margin: 0 0 18px 0;
+  font-size: 16px;
+}
+
+.discover-button {
+  background: white;
+  color: #ff5a00;
+  border: none;
+  border-radius: 10px;
+  padding: 12px 18px;
+  font-size: 16px;
+  cursor: pointer;
+}
+
+.discover-heart {
+  font-size: 56px;
+  opacity: 0.5;
+}
+
+.quick-actions-section {
+  padding: 0 20px 20px 20px;
+}
+
+.section-title {
+  margin: 0 0 16px 0;
+  font-size: 18px;
+  color: #222;
+}
+
+.quick-actions-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 14px;
+}
+
+.action-card {
+  background: white;
+  border-radius: 16px;
+  padding: 40px 20px;
+  text-align: center;
+  font-size: 18px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+  min-height: 120px;
+  display: flex;
   align-items: center;
   justify-content: center;
-  font-size: calc(10px + 2vmin);
+  cursor: pointer;
+}
+
+.bottom-nav {
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  width: 100%;
+  background: white;
+  border-top: 1px solid #ddd;
+  display: flex;
+  justify-content: space-around;
+  padding: 16px 0;
+}
+
+.nav-item {
+  color: #888;
+  font-size: 16px;
+  cursor: pointer;
+}
+
+.nav-item.active {
+  color: #13b24b;
+  font-weight: bold;
+}
+
+
+
+
+// Browse Page Styles
+.browse-page {
+  min-height: 100vh;
+  background-color: #f3f3f3;
+  padding-bottom: 90px;
+}
+
+.browse-header {
+  background: linear-gradient(90deg, #ff5a00, #ff007f);
+  color: white;
+  padding: 24px 20px;
+}
+
+.browse-header h1 {
+  margin: 0 0 8px 0;
+}
+
+.browse-header p {
+  margin: 0;
+}
+
+.recipe-card {
+  margin: 24px 20px;
+  background: white;
+  border-radius: 20px;
+  box-shadow: 0 6px 16px rgba(0, 0, 0, 0.12);
+  overflow: hidden;
+}
+
+.recipe-image {
+  height: 240px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 90px;
+  background: linear-gradient(135deg, #ffe0cc, #ffd6eb);
+}
+
+.recipe-content-box {
+  padding: 24px;
+}
+
+.recipe-content-box h2 {
+  margin: 0 0 12px 0;
+}
+
+.recipe-description {
+  color: #666;
+  margin-bottom: 16px;
+}
+
+.recipe-meta {
+  display: flex;
+  justify-content: space-between;
+  font-weight: bold;
+  color: #444;
+}
+
+.recipe-buttons {
+  display: flex;
+  gap: 12px;
+  padding: 0 24px 24px 24px;
+}
+
+.like-button,
+.dislike-button {
+  flex: 1;
+  border: none;
+  border-radius: 12px;
+  padding: 14px 0;
+  font-size: 16px;
+  cursor: pointer;
+}
+
+.like-button {
+  background: #13b24b;
   color: white;
 }
 
-.App-link {
-  color: #61dafb;
+.dislike-button {
+  background: #f1f1f1;
+  color: #333;
 }
 
-@keyframes App-logo-spin {
-  from {
-    transform: rotate(0deg);
-  }
-  to {
-    transform: rotate(360deg);
-  }
+.action-icon {
+  font-size: 34px;
+  margin-bottom: 12px;
+}
+
+.settings-icon {
+  font-size: 20px;
+  cursor: pointer;
 }

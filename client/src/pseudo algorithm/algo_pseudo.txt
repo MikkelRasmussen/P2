@@ -1,0 +1,122 @@
+BEGIN
+
+FUNCTION FindCheapestPrice(ingredient, bilkaPrices, nettoPrices, foetexPrices, remaPrices)
+
+    SET priceBilka  = bilkaPrices[ingredient]
+    SET priceNetto  = nettoPrices[ingredient]
+    SET priceFoetex = foetexPrices[ingredient]
+    SET priceRema   = remaPrices[ingredient]
+
+    SET cheapestPrice = priceBilka
+    SET cheapestStore = "Bilka"
+
+    IF priceNetto < cheapestPrice THEN
+        SET cheapestPrice = priceNetto
+        SET cheapestStore = "Netto"
+    END IF
+
+    IF priceFoetex < cheapestPrice THEN
+        SET cheapestPrice = priceFoetex
+        SET cheapestStore = "Foetex"
+    END IF
+
+    IF priceRema < cheapestPrice THEN
+        SET cheapestPrice = priceRema
+        SET cheapestStore = "Rema1000"
+    END IF
+
+    RETURN cheapestPrice, cheapestStore
+
+END FUNCTION
+
+
+FUNCTION RunAlgorithm(amount, budget)
+
+    TRY TO LOAD:
+        recipes
+        ingredientsMapping
+        measurementsMapping
+        bilkaPrices
+        nettoPrices
+        foetexPrices
+        remaPrices
+
+    IF loading fails THEN
+        PRINT "Error while loading data"
+        RETURN nothing
+    END IF
+
+
+    SET results = empty collection
+
+    REPEAT amount times
+
+        SET cheapestRecipeName = nothing
+        SET cheapestRecipePrice = very large number
+        SET cheapestRecipeStores = empty collection
+
+        FOR EACH recipe IN recipes
+
+            SET recipeName = recipe.name
+
+            IF recipeName is already in results THEN
+                SKIP to next recipe
+            END IF
+
+            SET totalPrice = 0
+            SET ingredientResults = empty collection
+            SET allIngredientsAvailable = true
+
+            FOR EACH ingredient IN recipe.ingredients
+
+                SET ingredientDK = ingredientsMapping[ingredient]
+
+                IF ingredientDK is not found in all store price lists THEN
+                    SET allIngredientsAvailable = false
+                    STOP checking this recipe
+                END IF
+
+                SET cheapestPrice, store =
+                    FindCheapestPrice(
+                        ingredientDK,
+                        bilkaPrices,
+                        nettoPrices,
+                        foetexPrices,
+                        remaPrices
+                    )
+
+                ADD to ingredientResults:
+                    ingredientDK
+                    store
+                    cheapestPrice
+
+                ADD cheapestPrice to totalPrice
+
+            END FOR
+
+            IF allIngredientsAvailable = true AND totalPrice <= budget THEN
+
+                IF totalPrice < cheapestRecipePrice THEN
+                    SET cheapestRecipeName = recipeName
+                    SET cheapestRecipePrice = totalPrice
+                    SET cheapestRecipeStores = ingredientResults
+                END IF
+
+            END IF
+
+        END FOR
+
+        IF cheapestRecipeName is not nothing THEN
+            ADD to results:
+                recipe name = cheapestRecipeName
+                total price = cheapestRecipePrice
+                store details = cheapestRecipeStores
+        END IF
+
+    END REPEAT
+
+    RETURN results
+
+END FUNCTION
+
+END

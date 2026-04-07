@@ -1,12 +1,11 @@
 """
-I have made this Python code as an testing program.
-The Pseudo code can be found in 
+I have made this Python code as a testing program.
+The Pseudo code can be found in algo_pseudo.txt.
+
+To run this example, you need to set the file paths below.
+You can leave the MEASUREMENTS_MAPPING_FILE_PATH blank, since
+i have not yet coded measurements into the algorithm.
 """
-
-
-import time
-
-
 
 
 # File paths
@@ -24,7 +23,7 @@ REMA_PRICES_FILE_PATH = "" # File path to the database of Rema1000 prices
 
 
 
-
+import time
 
 # Helper function to determine the cheapest store
 
@@ -82,9 +81,12 @@ def run_algorithm(amount: int = 1, # Amount of recipes needed
         with open(INGREDIENTS_MAPPING_FILE_PATH, "r") as f:
             ingredients_mapping = f.readlines()
 
-        measurements_mapping = None
-        with open(MEASUREMENTS_MAPPING_FILE_PATH, "r") as f:
-            measurements_mapping = f.readlines()
+        try:
+            measurements_mapping = None
+            with open(MEASUREMENTS_MAPPING_FILE_PATH, "r") as f:
+                measurements_mapping = f.readlines()
+        except:
+            pass
 
         bilka_prices = None
         with open(BILKA_PRICES_FILE_PATH, "r") as f:

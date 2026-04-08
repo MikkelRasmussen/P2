@@ -22,11 +22,104 @@ REMA_PRICES_FILE_PATH = "" # File path to the database of Rema1000 prices
 
 
 
+# Helper function to get user input
+def get_inputs():
+    # Setting budget (minimum)
+    while True:
+        budget_min = input("Minimum price per recipe (DKK): ")
+        try:
+            budget_min = float(budget_min)
+            if budget_min < 0:
+                print("Please choose a number above 0")
+                input("\nPress enter to continue...")
+                continue
+        except:
+            print("Please choose a number")
+            input("\nPress enter to continue...")
+            continue
+        break
 
-import time
+    # Setting budget (maximum)
+    while True:
+        budget_max = input("Maximum price per recipe (DKK): ")
+        try:
+            budget_max = float(budget_max)
+            if budget_max < budget_min:
+                print("Max price can not be lower than minimum price")
+                input("\nPress enter to continue...")
+                continue  
+            if budget_max <= 0:
+                print("Please choose a number above 0")
+                input("\nPress enter to continue...")
+                continue
+        except:
+            print("Please choose a number")
+            input("\nPress enter to continue...")
+            continue
+        break
+
+    # Setting amount of recipes to find
+    while True:
+        recipes_amount = input("Amount of recipes: ")
+        try:
+            recipes_amount = int(recipes_amount)
+            if recipes_amount <= 0:
+                print("Please choose a number above 0")
+                input("\nPress enter to continue...")
+                continue
+        except:
+            print("Please choose a whole number")
+            input("\nPress enter to continue...")
+            continue
+        break
+
+    return budget_min, budget_max, recipes_amount
+
+
+
+# Helper function to fetch price data from files
+def fetch_price_data():
+    try:
+        recipes = None
+        with open(RECIPES_FILE_PATH, "r") as f:
+            recipes = f.readlines()
+
+        ingredients_mapping = None
+        with open(INGREDIENTS_MAPPING_FILE_PATH, "r") as f:
+            ingredients_mapping = f.readlines()
+
+        measurements_mapping = None
+        try:
+            with open(MEASUREMENTS_MAPPING_FILE_PATH, "r") as f:
+                measurements_mapping = f.readlines()
+        except:
+            pass
+
+        bilka_prices = None
+        with open(BILKA_PRICES_FILE_PATH, "r") as f:
+            bilka_prices = f.readlines()
+
+        netto_prices = None
+        with open(NETTO_PRICES_FILE_PATH, "r") as f:
+            netto_prices = f.readlines()
+
+        føtex_prices = None
+        with open(FØTEX_PRICES_FILE_PATH, "r") as f:
+            føtex_prices = f.readlines()
+
+        rema_prices = None
+        with open(REMA_PRICES_FILE_PATH, "r") as f:
+            rema_prices = f.readlines()
+        
+        return recipes, ingredients_mapping, measurements_mapping, bilka_prices, netto_prices, føtex_prices, rema_prices
+    except Exception as e:
+        print(f"Error loading data from file:\n{e}\n")
+        return None
+
+
+
 
 # Helper function to determine the cheapest store
-
 def find_cheapest_price(ingredient: str,
                         bilka: dict,
                         netto: dict,
@@ -71,47 +164,11 @@ def run_algorithm(amount: int = 1, # Amount of recipes needed
                   budget_max: float = 9999, # max price per recipe
                 ) -> dict:
 
-    # Initialising the algorithm
-
-    try:
-        recipes = None
-        with open(RECIPES_FILE_PATH, "r") as f:
-            recipes = f.readlines()
-
-        ingredients_mapping = None
-        with open(INGREDIENTS_MAPPING_FILE_PATH, "r") as f:
-            ingredients_mapping = f.readlines()
-
-        try:
-            measurements_mapping = None
-            with open(MEASUREMENTS_MAPPING_FILE_PATH, "r") as f:
-                measurements_mapping = f.readlines()
-        except:
-            pass
-
-        bilka_prices = None
-        with open(BILKA_PRICES_FILE_PATH, "r") as f:
-            bilka_prices = f.readlines()
-
-        netto_prices = None
-        with open(NETTO_PRICES_FILE_PATH, "r") as f:
-            netto_prices = f.readlines()
-
-        føtex_prices = None
-        with open(FØTEX_PRICES_FILE_PATH, "r") as f:
-            føtex_prices = f.readlines()
-
-        rema_prices = None
-        with open(REMA_PRICES_FILE_PATH, "r") as f:
-            rema_prices = f.readlines()
-    except Exception as e:
-        print(f"Error loading data from file:\n{e}\n")
-        return None
-
+    # Initialising data for the algorithm
+    recipes, ingredients_mapping, measurements_mapping, bilka_prices, netto_prices, føtex_prices, rema_prices = fetch_price_data()
 
     
-    # ------ Main algorithm ------
-
+    # Algorithm
     results = {}
     for i in range(amount):
         candidates = {}
@@ -153,68 +210,17 @@ def run_algorithm(amount: int = 1, # Amount of recipes needed
 
 
 
-
-
-
 # Main function
-
 def main():
 
-    # Setting budget (minimum)
-    while True:
-        budget_min = input("Minimum price per recipe (DKK): ")
-        try:
-            budget_min = float(budget_min)
-            if budget_min < 0:
-                print("Please choose a number above 0")
-                time.sleep(2)
-                continue
-        except:
-            print("Please choose a number")
-            time.sleep(2)
-            continue
-        break
-
-    # Setting budget (maximum)
-    while True:
-        budget_max = input("Maximum price per recipe (DKK): ")
-        try:
-            budget_max = float(budget_max)
-            if budget_max < budget_min:
-                print("Max price can not be lower than minimum price")
-                time.sleep(2)
-                continue  
-            if budget_max <= 0:
-                print("Please choose a number above 0")
-                time.sleep(2)
-                continue
-        except:
-            print("Please choose a number")
-            time.sleep(2)
-            continue
-        break
-
-    # Setting amount of recipes needed
-    while True:
-        recipes_amount = input("Amount of recipes: ")
-        try:
-            recipes_amount = int(recipes_amount)
-            if recipes_amount <= 0:
-                print("Please choose a number above 0")
-                time.sleep(2)
-                continue
-        except:
-            print("Please choose a whole number")
-            time.sleep(2)
-            continue
-        break
+    budget_min, budget_max, recipes_amount = get_inputs()
 
     try:
         results = run_algorithm(recipes_amount, budget_min, budget_max)
         print(results)
     except Exception as e:
-        print(f"ERROR:\n {e}")
-        input("\n\nPress Enter to continue")
+        print(f"ERROR:\n{e}")
+        input("\nPress enter to continue")
 
 
 

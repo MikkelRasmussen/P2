@@ -1,122 +1,233 @@
 BEGIN
 
-FUNCTION FindCheapestPrice(ingredient, bilkaPrices, nettoPrices, foetexPrices, remaPrices)
-
-    SET priceBilka  = bilkaPrices[ingredient]
-    SET priceNetto  = nettoPrices[ingredient]
-    SET priceFoetex = foetexPrices[ingredient]
-    SET priceRema   = remaPrices[ingredient]
-
-    SET cheapestPrice = priceBilka
-    SET cheapestStore = "Bilka"
-
-    IF priceNetto < cheapestPrice THEN
-        SET cheapestPrice = priceNetto
-        SET cheapestStore = "Netto"
-    END IF
-
-    IF priceFoetex < cheapestPrice THEN
-        SET cheapestPrice = priceFoetex
-        SET cheapestStore = "Foetex"
-    END IF
-
-    IF priceRema < cheapestPrice THEN
-        SET cheapestPrice = priceRema
-        SET cheapestStore = "Rema1000"
-    END IF
-
-    RETURN cheapestPrice, cheapestStore
-
-END FUNCTION
+    SET RECIPES_FILE_PATH
+    SET INGREDIENTS_MAPPING_FILE_PATH
+    SET MEASUREMENTS_MAPPING_FILE_PATH
+    SET BILKA_PRICES_FILE_PATH
+    SET NETTO_PRICES_FILE_PATH
+    SET FOETEX_PRICES_FILE_PATH
+    SET REMA_PRICES_FILE_PATH
 
 
-FUNCTION RunAlgorithm(amount, budget)
+    FUNCTION GetInputs()
 
-    TRY TO LOAD:
-        recipes
-        ingredientsMapping
-        measurementsMapping
-        bilkaPrices
-        nettoPrices
-        foetexPrices
-        remaPrices
+        REPEAT
+            DISPLAY "Minimum price per recipe (DKK): "
+            READ budgetMin
 
-    IF loading fails THEN
-        PRINT "Error while loading data"
-        RETURN nothing
-    END IF
-
-
-    SET results = empty collection
-
-    REPEAT amount times
-
-        SET cheapestRecipeName = nothing
-        SET cheapestRecipePrice = very large number
-        SET cheapestRecipeStores = empty collection
-
-        FOR EACH recipe IN recipes
-
-            SET recipeName = recipe.name
-
-            IF recipeName is already in results THEN
-                SKIP to next recipe
+            IF budgetMin is not a number THEN
+                DISPLAY "Please choose a number"
+                WAIT for user
+            ELSE IF budgetMin < 0 THEN
+                DISPLAY "Please choose a number above 0"
+                WAIT for user
+            ELSE
+                EXIT LOOP
             END IF
+        UNTIL valid input
 
-            SET totalPrice = 0
-            SET ingredientResults = empty collection
-            SET allIngredientsAvailable = true
 
-            FOR EACH ingredient IN recipe.ingredients
+        REPEAT
+            DISPLAY "Maximum price per recipe (DKK): "
+            READ budgetMax
 
-                SET ingredientDK = ingredientsMapping[ingredient]
+            IF budgetMax is not a number THEN
+                DISPLAY "Please choose a number"
+                WAIT for user
+            ELSE IF budgetMax < budgetMin THEN
+                DISPLAY "Max price can not be lower than minimum price"
+                WAIT for user
+            ELSE IF budgetMax <= 0 THEN
+                DISPLAY "Please choose a number above 0"
+                WAIT for user
+            ELSE
+                EXIT LOOP
+            END IF
+        UNTIL valid input
 
-                IF ingredientDK is not found in all store price lists THEN
-                    SET allIngredientsAvailable = false
-                    STOP checking this recipe
+
+        REPEAT
+            DISPLAY "Amount of recipes: "
+            READ recipesAmount
+
+            IF recipesAmount is not a whole number THEN
+                DISPLAY "Please choose a whole number"
+                WAIT for user
+            ELSE IF recipesAmount <= 0 THEN
+                DISPLAY "Please choose a number above 0"
+                WAIT for user
+            ELSE
+                EXIT LOOP
+            END IF
+        UNTIL valid input
+
+        RETURN budgetMin, budgetMax, recipesAmount
+
+    END FUNCTION
+
+
+
+    FUNCTION FetchPriceData()
+
+        TRY
+            LOAD recipes from RECIPES_FILE_PATH
+            LOAD ingredientsMapping from INGREDIENTS_MAPPING_FILE_PATH
+
+            TRY
+                LOAD measurementsMapping from MEASUREMENTS_MAPPING_FILE_PATH
+            CATCH error
+                SET measurementsMapping to empty value
+            END TRY
+
+            LOAD bilkaPrices from BILKA_PRICES_FILE_PATH
+            LOAD nettoPrices from NETTO_PRICES_FILE_PATH
+            LOAD foetexPrices from FOETEX_PRICES_FILE_PATH
+            LOAD remaPrices from REMA_PRICES_FILE_PATH
+
+            RETURN recipes, ingredientsMapping, measurementsMapping,
+                   bilkaPrices, nettoPrices, foetexPrices, remaPrices
+
+        CATCH error
+            DISPLAY "Error loading data from file"
+            RETURN NULL
+        END TRY
+
+    END FUNCTION
+
+
+
+    FUNCTION FindCheapestPrice(ingredient, bilka, netto, foetex, rema)
+
+        SET cheapestPrice = 0
+        SET store = empty text
+
+        SET priceBilka = bilka[ingredient]
+        SET priceNetto = netto[ingredient]
+        SET priceFoetex = foetex[ingredient]
+        SET priceRema = rema[ingredient]
+
+        IF priceBilka is lower than priceNetto, priceFoetex, and priceRema THEN
+            SET store = "bilka"
+            SET cheapestPrice = priceBilka
+
+        ELSE IF priceNetto is lower than priceBilka, priceFoetex, and priceRema THEN
+            SET store = "netto"
+            SET cheapestPrice = priceNetto
+
+        ELSE IF priceFoetex is lower than priceBilka, priceNetto, and priceRema THEN
+            SET store = "foetex"
+            SET cheapestPrice = priceFoetex
+
+        ELSE IF priceRema is lower than priceBilka, priceNetto, and priceFoetex THEN
+            SET store = "rema"
+            SET cheapestPrice = priceRema
+
+        ELSE
+            RETURN NULL, NULL
+        END IF
+
+        RETURN cheapestPrice, store
+
+    END FUNCTION
+
+
+
+    FUNCTION RunAlgorithm(amount, budgetMin, budgetMax)
+
+        SET data = FetchPriceData()
+
+        UNPACK data into:
+            recipes,
+            ingredientsMapping,
+            measurementsMapping,
+            bilkaPrices,
+            nettoPrices,
+            foetexPrices,
+            remaPrices
+
+        SET results = empty dictionary
+
+        FOR i from 1 to amount
+
+            SET candidates = empty dictionary
+            SET cheapestCandidatePrice = very large number
+            SET cheapestCandidateName = NULL
+            SET cheapestCandidateStores = NULL
+
+            FOR EACH recipe in recipes
+
+                SET name = recipe["name"]
+
+                IF name exists in results THEN
+                    CONTINUE to next recipe
                 END IF
 
-                SET cheapestPrice, store =
-                    FindCheapestPrice(
-                        ingredientDK,
-                        bilkaPrices,
-                        nettoPrices,
-                        foetexPrices,
-                        remaPrices
-                    )
+                SET ingredients = recipe["ingredients"]
+                SET ingredientsResult = empty dictionary
+                SET totalPrice = 0
 
-                ADD to ingredientResults:
-                    ingredientDK
-                    store
-                    cheapestPrice
+                FOR EACH ingredient in ingredients
 
-                ADD cheapestPrice to totalPrice
+                    SET ingredientDK = ingredientsMapping[ingredient]
+
+                    SET cheapestPrice, store =
+                        FindCheapestPrice(
+                            ingredientDK,
+                            bilkaPrices,
+                            nettoPrices,
+                            foetexPrices,
+                            remaPrices
+                        )
+
+                    SET ingredientsResult[ingredient] =
+                        { store: store, price: cheapestPrice }
+
+                    ADD cheapestPrice to totalPrice
+
+                END FOR
+
+                IF cheapestPrice is between budgetMin and budgetMax THEN
+                    ADD name to candidates
+
+                    IF totalPrice < cheapestCandidatePrice THEN
+                        SET cheapestCandidatePrice = totalPrice
+                        SET cheapestCandidateName = name
+                        SET cheapestCandidateStores = ingredientsResult
+                    END IF
+                END IF
 
             END FOR
 
-            IF allIngredientsAvailable = true AND totalPrice <= budget THEN
-
-                IF totalPrice < cheapestRecipePrice THEN
-                    SET cheapestRecipeName = recipeName
-                    SET cheapestRecipePrice = totalPrice
-                    SET cheapestRecipeStores = ingredientResults
-                END IF
-
+            IF cheapestCandidateName is not NULL THEN
+                SET results[cheapestCandidateName] =
+                    {
+                        price: cheapestCandidatePrice,
+                        stores: cheapestCandidateStores
+                    }
             END IF
 
         END FOR
 
-        IF cheapestRecipeName is not nothing THEN
-            ADD to results:
-                recipe name = cheapestRecipeName
-                total price = cheapestRecipePrice
-                store details = cheapestRecipeStores
-        END IF
+        RETURN results
 
-    END REPEAT
+    END FUNCTION
 
-    RETURN results
 
-END FUNCTION
+
+    FUNCTION Main()
+
+        SET budgetMin, budgetMax, recipesAmount = GetInputs()
+
+        TRY
+            SET results = RunAlgorithm(recipesAmount, budgetMin, budgetMax)
+            DISPLAY results
+
+        CATCH error
+            DISPLAY "ERROR:"
+            DISPLAY error
+            WAIT for user
+        END TRY
+
+    END FUNCTION
 
 END

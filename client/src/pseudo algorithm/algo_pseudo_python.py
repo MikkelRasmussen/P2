@@ -67,8 +67,9 @@ def find_cheapest_price(ingredient: str,
 # Main function to run the algorithm
 
 def run_algorithm(amount: int = 1, # Amount of recipes needed
-                  budget: float = 9999, # Budget per recipe
-                ):
+                  budget_min: int = 0, # min price per recipe
+                  budget_max: float = 9999, # max price per recipe
+                ) -> dict:
 
     # Initialising the algorithm
 
@@ -104,7 +105,7 @@ def run_algorithm(amount: int = 1, # Amount of recipes needed
         with open(REMA_PRICES_FILE_PATH, "r") as f:
             rema_prices = f.readlines()
     except Exception as e:
-        print(f"Error with loading data in algorithm:\n\n{e}\n")
+        print(f"Error loading data from file:\n{e}\n")
         return None
 
 
@@ -134,7 +135,7 @@ def run_algorithm(amount: int = 1, # Amount of recipes needed
                 ingredients_result["ingredient"] = {"store": store, "price": cheapest_price}
                 total_price += cheapest_price
             
-            if cheapest_price <= budget:
+            if budget_min <= cheapest_price <= budget_max:
                 candidates.append(name)
                 if total_price < cheapest_candidate_price:
                     cheapest_candidate_price = total_price
@@ -159,12 +160,31 @@ def run_algorithm(amount: int = 1, # Amount of recipes needed
 
 def main():
 
-    # Setting budget
+    # Setting budget (minimum)
     while True:
-        budget = input("Budget per recipe (DKK): ")
+        budget_min = input("Minimum price per recipe (DKK): ")
         try:
-            budget = float(budget)
-            if budget <= 0:
+            budget_min = float(budget_min)
+            if budget_min < 0:
+                print("Please choose a number above 0")
+                time.sleep(2)
+                continue
+        except:
+            print("Please choose a number")
+            time.sleep(2)
+            continue
+        break
+
+    # Setting budget (maximum)
+    while True:
+        budget_max = input("Maximum price per recipe (DKK): ")
+        try:
+            budget_max = float(budget_max)
+            if budget_max < budget_min:
+                print("Max price can not be lower than minimum price")
+                time.sleep(2)
+                continue  
+            if budget_max <= 0:
                 print("Please choose a number above 0")
                 time.sleep(2)
                 continue
@@ -178,7 +198,7 @@ def main():
     while True:
         recipes_amount = input("Amount of recipes: ")
         try:
-            recipes_amount = int(budget)
+            recipes_amount = int(recipes_amount)
             if recipes_amount <= 0:
                 print("Please choose a number above 0")
                 time.sleep(2)
@@ -190,7 +210,7 @@ def main():
         break
 
     try:
-        results = run_algorithm(recipes_amount, budget)
+        results = run_algorithm(recipes_amount, budget_min, budget_max)
         print(results)
     except Exception as e:
         print(f"ERROR:\n {e}")

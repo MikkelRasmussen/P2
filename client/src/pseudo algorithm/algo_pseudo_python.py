@@ -124,37 +124,48 @@ def fetch_price_data():
 
 
 
-# Helper function to determine the cheapest store
-def find_cheapest_price(ingredient: str,
-                        bilka: dict,
-                        netto: dict,
-                        føtex: dict,
-                        rema: dict):
-    cheapest = 0
-    store = ""
+# Helper function to determine the cheapest price from the cheapest store
+def find_cheapest_price(ingredient: str, bilka: list, netto: list, føtex: list, rema: list):
 
-    price_bilka = bilka[ingredient]
-    price_netto = netto[ingredient]
-    price_føtex = føtex[ingredient]
-    price_rema = rema[ingredient]
+    # Finding cheapest price from each store
+    price_bilka = 999999
+    for i in range(len(bilka)):
+        if ingredient in bilka[i]["description"]:
+            if bilka[i]["price"] < price_bilka:
+                price_bilka = bilka[i]["price"]
 
-    if price_bilka < all(price_netto, price_føtex, price_rema):
-        store = "bilka"
-        cheapest = price_bilka
+    price_netto = 999999
+    for i in range(len(netto)):
+        if ingredient in netto[i]["description"]:
+            if netto[i]["price"] < price_netto:
+                price_netto = netto[i]["price"]
 
-    elif price_netto < all(price_bilka, price_føtex, price_rema):
-        store = "netto"
-        cheapest = price_netto
+    price_føtex = 999999
+    for i in range(len(føtex)):
+        if ingredient in føtex[i]["description"]:
+            if føtex[i]["price"] < price_føtex:
+                price_føtex = føtex[i]["price"]
 
-    elif price_føtex < all(price_netto, price_bilka, price_rema):
-        store = "føtex"
-        cheapest = price_føtex
+    price_rema = 999999
+    for department in rema["departments"]:
+        for category in department["categories"]:
+            for item in category["items"]:
+                if ingredient.lower() in item["name"].lower():
+                    if item["pricing"]["price"] < price_rema:
+                        price_rema = item["pricing"]["price"]
 
-    elif price_rema < all(price_netto, price_føtex, price_bilka):
-        store = "rema"
-        cheapest = price_rema
+    # Comparing the cheapest price from each store with each other
+    prices = {
+        "bilka": price_bilka,
+        "netto": price_netto,
+        "føtex": price_føtex,
+        "rema": price_rema
+    }
 
-    else:
+    store = min(prices, key=prices.get)
+    cheapest = prices[store]
+
+    if cheapest == 999999:
         return None, None
 
     return cheapest, store

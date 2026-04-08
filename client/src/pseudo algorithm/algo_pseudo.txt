@@ -18,9 +18,11 @@ BEGIN
             IF budgetMin is not a number THEN
                 DISPLAY "Please choose a number"
                 WAIT for user to try again
-            ELSE IF budgetMin < 0 THEN
+
+            ELSE IF budgetMin is less than 0 THEN
                 DISPLAY "Please choose a number above 0"
                 WAIT for user to try again
+
             ELSE
                 STOP loop
             END IF
@@ -34,12 +36,15 @@ BEGIN
             IF budgetMax is not a number THEN
                 DISPLAY "Please choose a number"
                 WAIT for user to try again
-            ELSE IF budgetMax < budgetMin THEN
+
+            ELSE IF budgetMax is less than budgetMin THEN
                 DISPLAY "Max price can not be lower than minimum price"
                 WAIT for user to try again
-            ELSE IF budgetMax <= 0 THEN
+
+            ELSE IF budgetMax is less than or equal to 0 THEN
                 DISPLAY "Please choose a number above 0"
                 WAIT for user to try again
+
             ELSE
                 STOP loop
             END IF
@@ -47,15 +52,17 @@ BEGIN
 
 
         REPEAT
-            ASK user for amount of recipes
+            ASK user for number of recipes
             READ recipesAmount
 
             IF recipesAmount is not a whole number THEN
                 DISPLAY "Please choose a whole number"
                 WAIT for user to try again
-            ELSE IF recipesAmount <= 0 THEN
+
+            ELSE IF recipesAmount is less than or equal to 0 THEN
                 DISPLAY "Please choose a number above 0"
                 WAIT for user to try again
+
             ELSE
                 STOP loop
             END IF
@@ -72,6 +79,7 @@ BEGIN
         TRY
             LOAD recipes
             LOAD ingredientsMapping
+
             TRY
                 LOAD measurementsMapping
             CATCH error
@@ -98,35 +106,65 @@ BEGIN
 
     FUNCTION FindCheapestPrice(ingredient, bilka, netto, foetex, rema)
 
-        SET cheapestPrice to 0
-        SET cheapestStore to empty
+        SET priceBilka to a very large number
+        FOR EACH item in bilka
+            IF ingredient is found in item description THEN
+                IF item price is lower than priceBilka THEN
+                    SET priceBilka to item price
+                END IF
+            END IF
+        END FOR
 
-        SET priceBilka to price of ingredient in Bilka
-        SET priceNetto to price of ingredient in Netto
-        SET priceFoetex to price of ingredient in Foetex
-        SET priceRema to price of ingredient in Rema
 
-        IF Bilka has the lowest price THEN
-            SET cheapestPrice to priceBilka
-            SET cheapestStore to "bilka"
+        SET priceNetto to a very large number
+        FOR EACH item in netto
+            IF ingredient is found in item description THEN
+                IF item price is lower than priceNetto THEN
+                    SET priceNetto to item price
+                END IF
+            END IF
+        END FOR
 
-        ELSE IF Netto has the lowest price THEN
-            SET cheapestPrice to priceNetto
-            SET cheapestStore to "netto"
 
-        ELSE IF Foetex has the lowest price THEN
-            SET cheapestPrice to priceFoetex
-            SET cheapestStore to "foetex"
+        SET priceFoetex to a very large number
+        FOR EACH item in foetex
+            IF ingredient is found in item description THEN
+                IF item price is lower than priceFoetex THEN
+                    SET priceFoetex to item price
+                END IF
+            END IF
+        END FOR
 
-        ELSE IF Rema has the lowest price THEN
-            SET cheapestPrice to priceRema
-            SET cheapestStore to "rema"
 
-        ELSE
+        SET priceRema to a very large number
+        FOR EACH department in rema departments
+            FOR EACH category in department categories
+                FOR EACH item in category items
+                    IF ingredient is found in item name THEN
+                        IF item pricing price is lower than priceRema THEN
+                            SET priceRema to item pricing price
+                        END IF
+                    END IF
+                END FOR
+            END FOR
+        END FOR
+
+
+        CREATE prices with:
+            bilka = priceBilka
+            netto = priceNetto
+            foetex = priceFoetex
+            rema = priceRema
+
+        FIND the store with the lowest price
+        SET cheapest to the lowest price
+        SET store to the matching store name
+
+        IF cheapest is still the very large number THEN
             RETURN NULL, NULL
         END IF
 
-        RETURN cheapestPrice, cheapestStore
+        RETURN cheapest, store
 
     END FUNCTION
 
@@ -134,13 +172,13 @@ BEGIN
 
     FUNCTION RunAlgorithm(amount, budgetMin, budgetMax)
 
-        LOAD all recipe, mapping, and store price data by calling FetchPriceData
+        LOAD all data by calling FetchPriceData
 
         SET results to empty collection
 
         FOR each number from 1 to amount
 
-            SET cheapestCandidatePrice to very large number
+            SET cheapestCandidatePrice to a very large number
             SET cheapestCandidateName to NULL
             SET cheapestCandidateStores to NULL
 
@@ -148,7 +186,7 @@ BEGIN
 
                 SET name to recipe name
 
-                IF name is already in results THEN
+                IF name already exists in results THEN
                     SKIP this recipe
                 END IF
 
@@ -160,32 +198,33 @@ BEGIN
 
                     SET ingredientDK to translated ingredient from ingredientsMapping
 
-                    SET cheapestPrice and store by calling FindCheapestPrice
+                    CALL FindCheapestPrice with ingredientDK and all store price data
+                    RECEIVE cheapestPrice and store
 
                     IF cheapestPrice is NULL OR store is NULL THEN
                         SKIP this ingredient
                     END IF
 
-                    SAVE ingredient with store and price in ingredientsResult
+                    SAVE ingredient with its store and price in ingredientsResult
                     ADD cheapestPrice to totalPrice
 
                 END FOR
 
                 IF cheapestPrice is between budgetMin and budgetMax THEN
-
                     IF totalPrice is lower than cheapestCandidatePrice THEN
                         SET cheapestCandidatePrice to totalPrice
                         SET cheapestCandidateName to name
                         SET cheapestCandidateStores to ingredientsResult
                     END IF
-
                 END IF
 
             END FOR
 
             IF cheapestCandidateName exists THEN
-                SAVE cheapestCandidateName, cheapestCandidatePrice,
-                     and cheapestCandidateStores in results
+                SAVE in results:
+                    recipe name
+                    total price
+                    ingredient store details
             END IF
 
         END FOR
@@ -198,11 +237,13 @@ BEGIN
 
     FUNCTION Main
 
-        GET budgetMin, budgetMax, and recipesAmount from GetInputs
+        CALL GetInputs
+        RECEIVE budgetMin, budgetMax, recipesAmount
 
         TRY
-            SET results to RunAlgorithm(recipesAmount, budgetMin, budgetMax)
+            CALL RunAlgorithm with recipesAmount, budgetMin, and budgetMax
             DISPLAY results
+
         CATCH error
             DISPLAY "ERROR"
             DISPLAY error

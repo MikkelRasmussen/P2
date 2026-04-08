@@ -8,8 +8,11 @@ i have not yet coded measurements into the algorithm.
 """
 
 
-# File paths
+from colorama import Style, Fore, init
+import sys
 
+
+# File paths
 RECIPES_FILE_PATH = "" # File path to the database with recipes (i dont know how to handle SQL databases here, so keep that in mind)
 
 INGREDIENTS_MAPPING_FILE_PATH = "" # File path to the mapping of ingredients
@@ -30,12 +33,12 @@ def get_inputs():
         try:
             budget_min = float(budget_min)
             if budget_min < 0:
-                print("Please choose a number above 0")
-                input("\nPress enter to continue...")
+                print(Fore.YELLOW + "Please choose a number above 0")
+                input(Fore.LIGHTBLACK_EX + "Press enter to try again..." + Style.RESET_ALL)
                 continue
         except:
-            print("Please choose a number")
-            input("\nPress enter to continue...")
+            print(Fore.YELLOW + "Please choose a number")
+            input(Fore.LIGHTBLACK_EX + "Press enter to try again..." + Style.RESET_ALL)
             continue
         break
 
@@ -45,16 +48,16 @@ def get_inputs():
         try:
             budget_max = float(budget_max)
             if budget_max < budget_min:
-                print("Max price can not be lower than minimum price")
-                input("\nPress enter to continue...")
+                print(Fore.YELLOW + "Max price can not be lower than minimum price")
+                input(Fore.LIGHTBLACK_EX + "Press enter to try again..." + Style.RESET_ALL)
                 continue  
             if budget_max <= 0:
-                print("Please choose a number above 0")
-                input("\nPress enter to continue...")
+                print(Fore.YELLOW + "Please choose a number above 0")
+                input(Fore.LIGHTBLACK_EX + "Press enter to try again..." + Style.RESET_ALL)
                 continue
         except:
-            print("Please choose a number")
-            input("\nPress enter to continue...")
+            print(Fore.YELLOW + "Please choose a number")
+            input(Fore.LIGHTBLACK_EX + "Press enter to try again..." + Style.RESET_ALL)
             continue
         break
 
@@ -64,12 +67,12 @@ def get_inputs():
         try:
             recipes_amount = int(recipes_amount)
             if recipes_amount <= 0:
-                print("Please choose a number above 0")
-                input("\nPress enter to continue...")
+                print(Fore.YELLOW + "Please choose a number above 0")
+                input(Fore.LIGHTBLACK_EX + "Press enter to try again..." + Style.RESET_ALL)
                 continue
         except:
-            print("Please choose a whole number")
-            input("\nPress enter to continue...")
+            print(Fore.YELLOW + "Please choose a whole number")
+            input(Fore.LIGHTBLACK_EX + "Press enter to try again..." + Style.RESET_ALL)
             continue
         break
 
@@ -113,8 +116,10 @@ def fetch_price_data():
         
         return recipes, ingredients_mapping, measurements_mapping, bilka_prices, netto_prices, føtex_prices, rema_prices
     except Exception as e:
-        print(f"Error loading data from file:\n{e}\n")
-        return None
+        print(Fore.RED + f"Error loading data from file:\n{e}\n")
+        input(Fore.LIGHTBLACK_EX + "\nPress enter to close program..." + Style.RESET_ALL)
+        sys.exit(0)
+        
 
 
 
@@ -189,6 +194,8 @@ def run_algorithm(amount: int = 1, # Amount of recipes needed
             for ingredient in ingredients:
                 ingredient_DK = ingredients_mapping[ingredient]
                 cheapest_price, store = find_cheapest_price(ingredient_DK, bilka_prices, netto_prices, føtex_prices, rema_prices)
+                if any(cheapest_price, store) is None:
+                    continue
                 ingredients_result["ingredient"] = {"store": store, "price": cheapest_price}
                 total_price += cheapest_price
             
@@ -219,8 +226,8 @@ def main():
         results = run_algorithm(recipes_amount, budget_min, budget_max)
         print(results)
     except Exception as e:
-        print(f"ERROR:\n{e}")
-        input("\nPress enter to continue")
+        print(Fore.RED + f"ERROR:\n{e}")
+        input(Fore.LIGHTBLACK_EX + "\nPress enter to close program..." + Style.RESET_ALL)
 
 
 

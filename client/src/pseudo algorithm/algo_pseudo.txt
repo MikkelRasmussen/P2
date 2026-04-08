@@ -1,65 +1,65 @@
 BEGIN
 
-    SET RECIPES_FILE_PATH
-    SET INGREDIENTS_MAPPING_FILE_PATH
-    SET MEASUREMENTS_MAPPING_FILE_PATH
-    SET BILKA_PRICES_FILE_PATH
-    SET NETTO_PRICES_FILE_PATH
-    SET FOETEX_PRICES_FILE_PATH
-    SET REMA_PRICES_FILE_PATH
+    SET recipe file path
+    SET ingredient mapping file path
+    SET measurement mapping file path
+    SET Bilka price file path
+    SET Netto price file path
+    SET Foetex price file path
+    SET Rema1000 price file path
 
 
-    FUNCTION GetInputs()
+    FUNCTION GetInputs
 
         REPEAT
-            DISPLAY "Minimum price per recipe (DKK): "
+            ASK user for minimum price per recipe
             READ budgetMin
 
             IF budgetMin is not a number THEN
                 DISPLAY "Please choose a number"
-                WAIT for user
+                WAIT for user to try again
             ELSE IF budgetMin < 0 THEN
                 DISPLAY "Please choose a number above 0"
-                WAIT for user
+                WAIT for user to try again
             ELSE
-                EXIT LOOP
+                STOP loop
             END IF
-        UNTIL valid input
+        END REPEAT
 
 
         REPEAT
-            DISPLAY "Maximum price per recipe (DKK): "
+            ASK user for maximum price per recipe
             READ budgetMax
 
             IF budgetMax is not a number THEN
                 DISPLAY "Please choose a number"
-                WAIT for user
+                WAIT for user to try again
             ELSE IF budgetMax < budgetMin THEN
                 DISPLAY "Max price can not be lower than minimum price"
-                WAIT for user
+                WAIT for user to try again
             ELSE IF budgetMax <= 0 THEN
                 DISPLAY "Please choose a number above 0"
-                WAIT for user
+                WAIT for user to try again
             ELSE
-                EXIT LOOP
+                STOP loop
             END IF
-        UNTIL valid input
+        END REPEAT
 
 
         REPEAT
-            DISPLAY "Amount of recipes: "
+            ASK user for amount of recipes
             READ recipesAmount
 
             IF recipesAmount is not a whole number THEN
                 DISPLAY "Please choose a whole number"
-                WAIT for user
+                WAIT for user to try again
             ELSE IF recipesAmount <= 0 THEN
                 DISPLAY "Please choose a number above 0"
-                WAIT for user
+                WAIT for user to try again
             ELSE
-                EXIT LOOP
+                STOP loop
             END IF
-        UNTIL valid input
+        END REPEAT
 
         RETURN budgetMin, budgetMax, recipesAmount
 
@@ -67,29 +67,29 @@ BEGIN
 
 
 
-    FUNCTION FetchPriceData()
+    FUNCTION FetchPriceData
 
         TRY
-            LOAD recipes from RECIPES_FILE_PATH
-            LOAD ingredientsMapping from INGREDIENTS_MAPPING_FILE_PATH
-
+            LOAD recipes
+            LOAD ingredientsMapping
             TRY
-                LOAD measurementsMapping from MEASUREMENTS_MAPPING_FILE_PATH
+                LOAD measurementsMapping
             CATCH error
                 SET measurementsMapping to empty value
             END TRY
 
-            LOAD bilkaPrices from BILKA_PRICES_FILE_PATH
-            LOAD nettoPrices from NETTO_PRICES_FILE_PATH
-            LOAD foetexPrices from FOETEX_PRICES_FILE_PATH
-            LOAD remaPrices from REMA_PRICES_FILE_PATH
+            LOAD bilkaPrices
+            LOAD nettoPrices
+            LOAD foetexPrices
+            LOAD remaPrices
 
             RETURN recipes, ingredientsMapping, measurementsMapping,
                    bilkaPrices, nettoPrices, foetexPrices, remaPrices
 
         CATCH error
             DISPLAY "Error loading data from file"
-            RETURN NULL
+            WAIT for user
+            CLOSE program
         END TRY
 
     END FUNCTION
@@ -98,35 +98,35 @@ BEGIN
 
     FUNCTION FindCheapestPrice(ingredient, bilka, netto, foetex, rema)
 
-        SET cheapestPrice = 0
-        SET store = empty text
+        SET cheapestPrice to 0
+        SET cheapestStore to empty
 
-        SET priceBilka = bilka[ingredient]
-        SET priceNetto = netto[ingredient]
-        SET priceFoetex = foetex[ingredient]
-        SET priceRema = rema[ingredient]
+        SET priceBilka to price of ingredient in Bilka
+        SET priceNetto to price of ingredient in Netto
+        SET priceFoetex to price of ingredient in Foetex
+        SET priceRema to price of ingredient in Rema
 
-        IF priceBilka is lower than priceNetto, priceFoetex, and priceRema THEN
-            SET store = "bilka"
-            SET cheapestPrice = priceBilka
+        IF Bilka has the lowest price THEN
+            SET cheapestPrice to priceBilka
+            SET cheapestStore to "bilka"
 
-        ELSE IF priceNetto is lower than priceBilka, priceFoetex, and priceRema THEN
-            SET store = "netto"
-            SET cheapestPrice = priceNetto
+        ELSE IF Netto has the lowest price THEN
+            SET cheapestPrice to priceNetto
+            SET cheapestStore to "netto"
 
-        ELSE IF priceFoetex is lower than priceBilka, priceNetto, and priceRema THEN
-            SET store = "foetex"
-            SET cheapestPrice = priceFoetex
+        ELSE IF Foetex has the lowest price THEN
+            SET cheapestPrice to priceFoetex
+            SET cheapestStore to "foetex"
 
-        ELSE IF priceRema is lower than priceBilka, priceNetto, and priceFoetex THEN
-            SET store = "rema"
-            SET cheapestPrice = priceRema
+        ELSE IF Rema has the lowest price THEN
+            SET cheapestPrice to priceRema
+            SET cheapestStore to "rema"
 
         ELSE
             RETURN NULL, NULL
         END IF
 
-        RETURN cheapestPrice, store
+        RETURN cheapestPrice, cheapestStore
 
     END FUNCTION
 
@@ -134,76 +134,58 @@ BEGIN
 
     FUNCTION RunAlgorithm(amount, budgetMin, budgetMax)
 
-        SET data = FetchPriceData()
+        LOAD all recipe, mapping, and store price data by calling FetchPriceData
 
-        UNPACK data into:
-            recipes,
-            ingredientsMapping,
-            measurementsMapping,
-            bilkaPrices,
-            nettoPrices,
-            foetexPrices,
-            remaPrices
+        SET results to empty collection
 
-        SET results = empty dictionary
+        FOR each number from 1 to amount
 
-        FOR i from 1 to amount
-
-            SET candidates = empty dictionary
-            SET cheapestCandidatePrice = very large number
-            SET cheapestCandidateName = NULL
-            SET cheapestCandidateStores = NULL
+            SET cheapestCandidatePrice to very large number
+            SET cheapestCandidateName to NULL
+            SET cheapestCandidateStores to NULL
 
             FOR EACH recipe in recipes
 
-                SET name = recipe["name"]
+                SET name to recipe name
 
-                IF name exists in results THEN
-                    CONTINUE to next recipe
+                IF name is already in results THEN
+                    SKIP this recipe
                 END IF
 
-                SET ingredients = recipe["ingredients"]
-                SET ingredientsResult = empty dictionary
-                SET totalPrice = 0
+                SET ingredients to recipe ingredients
+                SET ingredientsResult to empty collection
+                SET totalPrice to 0
 
                 FOR EACH ingredient in ingredients
 
-                    SET ingredientDK = ingredientsMapping[ingredient]
+                    SET ingredientDK to translated ingredient from ingredientsMapping
 
-                    SET cheapestPrice, store =
-                        FindCheapestPrice(
-                            ingredientDK,
-                            bilkaPrices,
-                            nettoPrices,
-                            foetexPrices,
-                            remaPrices
-                        )
+                    SET cheapestPrice and store by calling FindCheapestPrice
 
-                    SET ingredientsResult[ingredient] =
-                        { store: store, price: cheapestPrice }
+                    IF cheapestPrice is NULL OR store is NULL THEN
+                        SKIP this ingredient
+                    END IF
 
+                    SAVE ingredient with store and price in ingredientsResult
                     ADD cheapestPrice to totalPrice
 
                 END FOR
 
                 IF cheapestPrice is between budgetMin and budgetMax THEN
-                    ADD name to candidates
 
-                    IF totalPrice < cheapestCandidatePrice THEN
-                        SET cheapestCandidatePrice = totalPrice
-                        SET cheapestCandidateName = name
-                        SET cheapestCandidateStores = ingredientsResult
+                    IF totalPrice is lower than cheapestCandidatePrice THEN
+                        SET cheapestCandidatePrice to totalPrice
+                        SET cheapestCandidateName to name
+                        SET cheapestCandidateStores to ingredientsResult
                     END IF
+
                 END IF
 
             END FOR
 
-            IF cheapestCandidateName is not NULL THEN
-                SET results[cheapestCandidateName] =
-                    {
-                        price: cheapestCandidatePrice,
-                        stores: cheapestCandidateStores
-                    }
+            IF cheapestCandidateName exists THEN
+                SAVE cheapestCandidateName, cheapestCandidatePrice,
+                     and cheapestCandidateStores in results
             END IF
 
         END FOR
@@ -214,16 +196,15 @@ BEGIN
 
 
 
-    FUNCTION Main()
+    FUNCTION Main
 
-        SET budgetMin, budgetMax, recipesAmount = GetInputs()
+        GET budgetMin, budgetMax, and recipesAmount from GetInputs
 
         TRY
-            SET results = RunAlgorithm(recipesAmount, budgetMin, budgetMax)
+            SET results to RunAlgorithm(recipesAmount, budgetMin, budgetMax)
             DISPLAY results
-
         CATCH error
-            DISPLAY "ERROR:"
+            DISPLAY "ERROR"
             DISPLAY error
             WAIT for user
         END TRY

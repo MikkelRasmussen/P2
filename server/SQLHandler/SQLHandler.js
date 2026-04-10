@@ -8,6 +8,17 @@ const e = require('express');
 //https://www.w3schools.com/nodejs/nodejs_mysql.asp
 //https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Promise/Promise
 //https://stackoverflow.com/questions/9205496/how-to-make-connection-to-postgres-via-node-js
+
+const date = new Date();
+function GetTimeStamp() {
+    return {
+        day: date.getDate(),
+        month: date.getMonth(),
+        year: date.getFullYear(),
+        hour: date.getHours(),
+        minute: date.getMinutes(),
+    };
+}
 module.exports = class SQLHandler {
     #client;
     async Connect(host, user, password, port) {
@@ -111,110 +122,48 @@ module.exports = class SQLHandler {
             if (ingredientsQueryResult === undefined) return false;
             ingredientsQueryResult = Array.from(ingredientsQueryResult).map(e => String(e.ingredient));
 
-            // const response = await fetch('http://localhost:5000/api/fetch-multiple', {
-            //     method: 'POST',
-            //     headers: {
-            //         'Content-Type': 'application/json',
-            //         'x-api-key': 'SG_APIM_4A20F12K69B8YC47D1E094QEZPMW7Q73B1BZCN2PW2QF88VQ3C4G'
-            //     },
-            //     body: JSON.stringify({
-            //         endpoints: ['recommendations/most-bought/bilkatogo/feed',],
-            //         basePath: 'api.sallinggroup.com/v1'
-            //     })
-            // });
+            console.info("Reading cache...");
+            var readSeconds = Date.now();
+            var data = JSON.parse(fs.readFileSync("./server/SQLHandler/cache.json", 'utf8')); //Read cache
+            console.info(`Done! (${Date.now() - readSeconds} ms)`)
+            //update cache if more then 24 hours has passed, since last update.
+            if (data.timeStamp === undefined || data.timeStamp + 86400000 < Date.now()) {
+                console.info("More then 24 hours has passed since last refresh! Updating...");
+                var readSeconds = Date.now();
+                const response = await fetch('http://localhost:5000/api/fetch-multiple', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'x-api-key': 'SG_APIM_4A20F12K69B8YC47D1E094QEZPMW7Q73B1BZCN2PW2QF88VQ3C4G'
+                    },
+                    body: JSON.stringify({
+                        endpoints: ['recommendations/most-bought/bilkatogo/feed',],
+                        basePath: 'api.sallinggroup.com/v1'
+                    })
+                });
+                data = await response.json();
+                console.info(`Done! (${Date.now() - readSeconds} ms)`)
+                data.timeStamp = Date.now();
+                fs.writeFileSync("./server/SQLHandler/cache.json", JSON.stringify(data), 'utf8');
+            }
 
-            // const data = await response.json();
-            const data = JSON.parse(fs.readFileSync("./server/SQLHandler/cache.json", 'utf8'));
             console.log('Success:', data.success);
             console.log('Failed:', data.failed);
             console.log('Results:', data.results);
             console.log('Full response:', data);
-            //fs.writeFileSync("./server/SQLHandler/cache.json", JSON.stringify(data), 'utf8');
 
-            var items = await data.results.map(e => e.data).flat();
-            // var itemProcesses = []
-            // for (let i = 0; i < items.length; i++) {
-            //     console.log(`${items[i].name} (${i} / ${items.length - 1})`);
-            //     var p1 = HandleItem(items[i]);
-            //     itemProcesses.push(p1);
-            //     if (itemProcesses.length > 10){
-            //         await Promise.allSettled(itemProcesses);
-            //         itemProcesses = [];
-            //     }
-            // }
-            // data.results.forEach(async result => await result.data.forEach(async item => await HandleItem(item)));
-            async function HandleItem(item) {
-                if (item.inStock === false) return;
-                const itemLowerCase = String(item.name).toLowerCase();
-                if (itemLowerCase === "vand") return;
-                var promises = [];
-                const sliceSize = ingredientsQueryResult.length / 2;
-                for (let i = 0; i < ingredientsQueryResult.length; i += Math.min(sliceSize, ingredientsQueryResult.length - i)) {
-                    var p = new Promise(async (resolve) => {
-                        let max = Math.min(sliceSize, ingredientsQueryResult.length - i);
-                        const filteredQueryList = ingredientsQueryResult
-                            .map((value, index) => `${index} = "${value}",\n`).slice(i, i + max)
-                            .join(" ").concat(`length = ${ingredientsQueryResult.length}`);
-                        // console.log(filteredQueryList);
-                        const body = {
-                            model: "llama3.2",
-                            prompt: `list:${filteredQueryList}\n Find the index number of "${item.name}"`,
-                            format: {
-                                type: "object",
-                                properties: {
-                                    index: { type: "number" }
-                                },
-                                required: ["index"],
-                            }
-                        };
-                        const answer = await fetch("http://127.0.0.1:11434/api/generate", { method: "POST", body: JSON.stringify(body) });
-                        const answerText = await answer.text();
-                        const mappedString = JSON.parse(answerText.match(/{.*}/gm).map(e => JSON.parse(e)).map(e => e.response).join("").trim());
-
-                        const re = ingredientsQueryResult.at(mappedString.index);
-                        if (mappedString.index === undefined || re === undefined || (!re.includes(itemLowerCase) && !itemLowerCase.includes(re))) {
-                            console.error(`[${i}, ${i + max}] ${re}`)
-                        }
-                        else {
-                            console.log(`[${i}, ${i + max}] ${re}`)
-                        }
-                        resolve(re);
-                    })
-                    promises.push(p);
-                }
-                await Promise.allSettled(promises);
-
-                console.log("========")
-
-                const ingredients = [];
-                const FormatedContent = FormatContentUnit(item.contents, item.contentsUnit); //Fx: convert kg to g.
-                const formatedItem = {
-                    name: item.name,
-                    price: item.price,
-                    contents: FormatedContent.content,
-                    contentsUnit: FormatedContent.contentsUnit,
-                    ingredientMatches: ingredients,
-                    store: "Salling",
-                    sku: item.sku,
-                }
-                // items.push(formatedItem);
-                function FormatContentUnit(content, unit) {
-                    switch (unit) {
-                        case "g":
-                            return { content: content, contentsUnit: "g" };
-                        case "kg":
-                            return { content: (content * 1000), contentsUnit: "g" };
-                        default:
-                            return { content: content, contentsUnit: unit };
-                    }
-                }
-            }
-
-
+            var items = Array.from(await data.results.map(e => e.data).flat()).map(e => {
+                const itemLowerCase = String(e).toLowerCase();
+                //Remove keywords found in the ingredientCutoutKeywords.json, such as "Øko".
+                let lowerCasedCleaned = itemLowerCase;
+                cutoutMap.keyword.forEach(f => lowerCasedCleaned = ` ${lowerCasedCleaned} `.replace(` ${f} `, ""));
+                e.lowerCaseCleaned = lowerCasedCleaned.trim();
+                return e;
+            });
+            
             console.time("Item catalouge time");
             for (let i = 0; i < items.length; i++) {
                 let item = items[i];
-                // console.log(`${items[i].name} (${i} / ${items.length - 1})`);
 
                 if (item.inStock === false) continue;
                 const itemLowerCase = String(item.name).toLowerCase();

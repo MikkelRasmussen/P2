@@ -5,5 +5,5 @@ CREATE TABLE IF NOT EXISTS "Food" (
 	"contentsUnit" TEXT NULL DEFAULT NULL,
 	"ingredientMatches" JSON NULL DEFAULT NULL,
 	"store" TEXT NULL DEFAULT NULL,
-	UNIQUE ("name")
+	"sku" BIGINT NULL DEFAULT NULL
 );

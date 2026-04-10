@@ -1,7 +1,10 @@
 var pg = require('pg');
 var ingMap = require('./mapping_ingredienser.json');
 var mesMap = require('./mapping_måling.json');
+var cutoutMap = require('./ingredientCutoutKeywords.json');
 const fs = require('node:fs');
+const { exec } = require('child_process');
+const e = require('express');
 //https://www.w3schools.com/nodejs/nodejs_mysql.asp
 //https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Promise/Promise
 //https://stackoverflow.com/questions/9205496/how-to-make-connection-to-postgres-via-node-js
@@ -53,76 +56,325 @@ module.exports = class SQLHandler {
     }
 
     async ImportSallingData() {
+
+        function ScoreWordMatch(word11, word22) {
+            var word1 = String(word11.length > word22.length ? word11 : word22).replace(" ", "");
+            var word2 = String(word11.length > word22.length ? word22 : word11).replace(" ", "");
+
+            var match = 0;
+            var wordMatches = [];
+            for (let off1 = 0; off1 < word2.length; off1++) {
+                var wordMatch = [];
+                for (let look = 0; look < word1.length; look++) {
+                    if (word1[look] == word2[(look + off1) % word2.length])
+                        wordMatch += word1[look];
+                    else if (wordMatch.length > 0) {
+                        if (word1.includes(wordMatch) && word2.includes(wordMatch)) {
+                            wordMatches.push(wordMatch);
+                            match = Math.max(match, wordMatch.length);
+                        }
+                        wordMatch = [];
+                    }
+
+                }
+
+                if (wordMatch.length > 0) {
+                    if (word1.includes(wordMatch) && word2.includes(wordMatch)) {
+                        wordMatches.push(wordMatch);
+                        match = Math.max(match, wordMatch.length);
+                    }
+                }
+            }
+            // console.log(wordMatches);
+            return (match / word1.length);
+        }
+
+
+        // var match = ScoreWordMatch("italienske fennikelpølser", "Grillpølser m. ost 62% kød");
+        // console.log(match);
+        // match = ScoreWordMatch("tyske pølser", "Grillpølser m. ost 62% kød")
+        // console.log(match);
+        // match = ScoreWordMatch("øl", "Grillpølser m. ost 62% kød")
+        // console.log(match);
+        // var match = ScoreWordMatch("mandler", "mandler")
+        // console.log(match);
+        // return;
         if (!this.#InsureFoodDatabase()) {
             console.error("Could not insure the existance of the food table!");
             return false;
         }
         try {
+
             var getValidIngredientsQuery = `SELECT DISTINCT (json_extract_path_text(json_array_elements(ingredients), 'ingredient')) 
             AS ingredient FROM "Recipes";`
             var ingredientsQueryResult = await this.Query(getValidIngredientsQuery);
             if (ingredientsQueryResult === undefined) return false;
             ingredientsQueryResult = Array.from(ingredientsQueryResult).map(e => String(e.ingredient));
 
-            const response = await fetch('http://localhost:5000/api/fetch-multiple', {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'x-api-key': 'SG_APIM_4A20F12K69B8YC47D1E094QEZPMW7Q73B1BZCN2PW2QF88VQ3C4G'
-                },
-                body: JSON.stringify({
-                    endpoints: ['recommendations/most-bought/bilkatogo/feed',],
-                    basePath: 'api.sallinggroup.com/v1'
-                })
-            });
+            // const response = await fetch('http://localhost:5000/api/fetch-multiple', {
+            //     method: 'POST',
+            //     headers: {
+            //         'Content-Type': 'application/json',
+            //         'x-api-key': 'SG_APIM_4A20F12K69B8YC47D1E094QEZPMW7Q73B1BZCN2PW2QF88VQ3C4G'
+            //     },
+            //     body: JSON.stringify({
+            //         endpoints: ['recommendations/most-bought/bilkatogo/feed',],
+            //         basePath: 'api.sallinggroup.com/v1'
+            //     })
+            // });
 
-            const data = await response.json();
+            // const data = await response.json();
+            const data = JSON.parse(fs.readFileSync("./server/SQLHandler/cache.json", 'utf8'));
             console.log('Success:', data.success);
             console.log('Failed:', data.failed);
             console.log('Results:', data.results);
             console.log('Full response:', data);
+            //fs.writeFileSync("./server/SQLHandler/cache.json", JSON.stringify(data), 'utf8');
 
+            var items = await data.results.map(e => e.data).flat();
+            // var itemProcesses = []
+            // for (let i = 0; i < items.length; i++) {
+            //     console.log(`${items[i].name} (${i} / ${items.length - 1})`);
+            //     var p1 = HandleItem(items[i]);
+            //     itemProcesses.push(p1);
+            //     if (itemProcesses.length > 10){
+            //         await Promise.allSettled(itemProcesses);
+            //         itemProcesses = [];
+            //     }
+            // }
+            // data.results.forEach(async result => await result.data.forEach(async item => await HandleItem(item)));
+            async function HandleItem(item) {
+                if (item.inStock === false) return;
+                const itemLowerCase = String(item.name).toLowerCase();
+                if (itemLowerCase === "vand") return;
+                var promises = [];
+                const sliceSize = ingredientsQueryResult.length / 2;
+                for (let i = 0; i < ingredientsQueryResult.length; i += Math.min(sliceSize, ingredientsQueryResult.length - i)) {
+                    var p = new Promise(async (resolve) => {
+                        let max = Math.min(sliceSize, ingredientsQueryResult.length - i);
+                        const filteredQueryList = ingredientsQueryResult
+                            .map((value, index) => `${index} = "${value}",\n`).slice(i, i + max)
+                            .join(" ").concat(`length = ${ingredientsQueryResult.length}`);
+                        // console.log(filteredQueryList);
+                        const body = {
+                            model: "llama3.2",
+                            prompt: `list:${filteredQueryList}\n Find the index number of "${item.name}"`,
+                            format: {
+                                type: "object",
+                                properties: {
+                                    index: { type: "number" }
+                                },
+                                required: ["index"],
+                            }
+                        };
+                        const answer = await fetch("http://127.0.0.1:11434/api/generate", { method: "POST", body: JSON.stringify(body) });
+                        const answerText = await answer.text();
+                        const mappedString = JSON.parse(answerText.match(/{.*}/gm).map(e => JSON.parse(e)).map(e => e.response).join("").trim());
+
+                        const re = ingredientsQueryResult.at(mappedString.index);
+                        if (mappedString.index === undefined || re === undefined || (!re.includes(itemLowerCase) && !itemLowerCase.includes(re))) {
+                            console.error(`[${i}, ${i + max}] ${re}`)
+                        }
+                        else {
+                            console.log(`[${i}, ${i + max}] ${re}`)
+                        }
+                        resolve(re);
+                    })
+                    promises.push(p);
+                }
+                await Promise.allSettled(promises);
+
+                console.log("========")
+
+                const ingredients = [];
+                const FormatedContent = FormatContentUnit(item.contents, item.contentsUnit); //Fx: convert kg to g.
+                const formatedItem = {
+                    name: item.name,
+                    price: item.price,
+                    contents: FormatedContent.content,
+                    contentsUnit: FormatedContent.contentsUnit,
+                    ingredientMatches: ingredients,
+                    store: "Salling",
+                    sku: item.sku,
+                }
+                // items.push(formatedItem);
+                function FormatContentUnit(content, unit) {
+                    switch (unit) {
+                        case "g":
+                            return { content: content, contentsUnit: "g" };
+                        case "kg":
+                            return { content: (content * 1000), contentsUnit: "g" };
+                        default:
+                            return { content: content, contentsUnit: unit };
+                    }
+                }
+            }
+
+
+            console.time("Item catalouge time");
+            for (let i = 0; i < items.length; i++) {
+                let item = items[i];
+                // console.log(`${items[i].name} (${i} / ${items.length - 1})`);
+
+                if (item.inStock === false) continue;
+                const itemLowerCase = String(item.name).toLowerCase();
+                if (itemLowerCase === "vand") continue;
+
+                //Remove keywords found in the ingredientCutoutKeywords.json, such as "Øko".
+                let lowerCasedCleaned = itemLowerCase;
+                cutoutMap.keyword.forEach(e => lowerCasedCleaned = ` ${lowerCasedCleaned} `.replace(` ${e} `, ""));
+                lowerCasedCleaned = lowerCasedCleaned.trim();
+
+                var ingredient = ingredientsQueryResult
+                    .map(e => { return { score: ScoreWordMatch(e, lowerCasedCleaned), name: e } })
+                    .filter(e => e.score > 0.25)
+                    .sort((a, b) => {
+                        if (a.score > b.score) return -1;
+                        else if (a.score < b.score) return 1;
+                        else return 0;
+                    });
+                var ing = ingredient.map(e => `\n{${e.score}, ${e.name}}`);
+                if (ingredient.length <= 0) continue;
+                console.groupCollapsed(`${items[i].name} ScoreMatch: (${i} / ${items.length - 1})`);
+                console.log(`${ing}`.substring(1));
+                console.groupEnd();
+
+                function cosinesim(A, B) {
+                    var dotproduct = 0;
+                    var mA = 0;
+                    var mB = 0;
+
+                    for (var i = 0; i < A.length; i++) {
+                        dotproduct += A[i] * B[i];
+                        mA += A[i] * A[i];
+                        mB += B[i] * B[i];
+                    }
+
+                    mA = Math.sqrt(mA);
+                    mB = Math.sqrt(mB);
+                    var similarity = dotproduct / (mA * mB);
+
+                    return similarity;
+                }
+                if (ingredient.map(e => e.score)[0] < 0.99999999) {
+                    const filteredQueryList = Array.from([lowerCasedCleaned]).concat(ingredient.map((value) => value.name));
+                    // console.log(filteredQueryList);
+                    const body = {
+                        model: "qwen3-embedding",
+                        input: filteredQueryList
+                    };
+                    console.time("fetchTime");
+                    const answer = await fetch("http://127.0.0.1:11434/api/embed", { method: "POST", body: JSON.stringify(body) });
+                    const reponseObject = await answer.json();
+                    console.timeEnd("fetchTime")
+
+                    const resp = reponseObject.embeddings
+                        .map((e, i) => { return { score: cosinesim(reponseObject.embeddings[0], e), name: ingredient[Math.max(0, i - 1)].name } })
+                        .splice(1, reponseObject.embeddings.length - 1)
+                        .sort((a, b) => {
+                            if (a.score > b.score) return -1;
+                            else if (a.score < b.score) return 1;
+                            else return 0;
+                        })
+                        .filter(e => e.score > 0.8);
+
+                    var ing2 = resp.map(e => `\n{${e.score}, ${e.name}}`);
+                    // console.log("_________");
+                    console.groupCollapsed(`${items[i].name} Embedded: (${ing2[0] !== undefined ? ing2[0].substring(1) : ""})`);
+                    console.log(`${ing2}`.substring(1))
+                    console.groupEnd();
+                }
+
+                if (ingredient.length < 1) continue; //Ignore empty ingredient lists.
+                const FormatedContent = FormatContentUnit(item.contents, item.contentsUnit); //Fx: convert kg to g.
+                const formatedItem = {
+                    name: item.name,
+                    price: item.price,
+                    contents: FormatedContent.content,
+                    contentsUnit: FormatedContent.contentsUnit,
+                    ingredientMatches: ingredient,
+                    store: "Salling",
+                    sku: item.sku,
+                }
+
+
+                //TODO: change query string to check if a SKU number already exist in the store!
+                var queryString = `INSERT INTO "Food" SELECT
+                    '${formatedItem.name}', 
+                    ${formatedItem.price},
+                    ${formatedItem.contents},
+                    '${formatedItem.contentsUnit}', 
+                    '${JSON.stringify(formatedItem.ingredientMatches)}', 
+                    '${formatedItem.store}',
+                    ${formatedItem.sku}
+                    WHERE NOT EXISTS (SELECT 1 FROM "Food" WHERE store = '${formatedItem.store}' AND sku = '${formatedItem.sku}')`.trim();
+                // console.log(queryString);
+                // if (await this.Query(queryString) === undefined) {
+                //     console.log(queryString);
+                // }
+
+                function FormatContentUnit(content, unit) {
+                    switch (unit) {
+                        case "g":
+                            return { content: content, contentsUnit: "g" };
+                        case "kg":
+                            return { content: (content * 1000), contentsUnit: "g" };
+                        default:
+                            return { content: content, contentsUnit: unit };
+                    }
+                }
+
+            }
+            console.timeEnd("Item catalouge time");
+            /*
             data.results.forEach(result => {
                 result.data.forEach(async item => {
                     if (item.inStock === false) return;
                     const itemLowerCase = String(item.name).toLowerCase();
                     if (itemLowerCase === "vand") return;
-                    var ingredient = ingredientsQueryResult
-                        .filter(e => (` ${e} `.toLowerCase().includes(itemLowerCase)))
-                        .filter(e => { //Diffreance threshold.
-                            var it = e.split(" ").find(f => f.toLowerCase().includes(itemLowerCase));
-                            if (it !== undefined) return it.length <= itemLowerCase.length + 2;
-                            else return true;
-                        })
-                        .filter(e => { //check if item contains multiple ingrediants.
-                            var checkString = String(e).replace(itemLowerCase, "").trim();
-                            var go = ingredientsQueryResult.filter(f => f.includes(checkString) && checkString.length > 0)
-                            return go.length <= 1;
-                        });
+                    var ingredient = ingredientsQueryResult.filter(e => (` ${e} `.toLowerCase().includes(` ${itemLowerCase} `)));
+                    // if (ingredient.length > 0) console.log(`1:: ${ingredient}`);
+                    ingredient = ingredient.filter(e => { //Diffreance threshold.
+                        var it = e.split(" ").find(f => f.toLowerCase().includes(itemLowerCase));
+                        if (it !== undefined) return it.length <= itemLowerCase.length + 2;
+                        else return true;
+                    });
+                    // if (ingredient.length > 0) console.log(`2:: ${ingredient}`);
+                    ingredient = ingredient.filter(e => { //check if item contains multiple ingrediants.
+                        var checkString = String(e).replace(itemLowerCase, "").trim();
+                        var go = ingredientsQueryResult.filter(f => f.includes(checkString) && checkString.length > 0)
+                        return go.length <= 1;
+                    });
+                    // if (ingredient.length > 0) console.log(`3:: ${ingredient}`);
+
+
                     if (ingredient.length < 1) return; //Ignore empty ingredient lists.
-                    console.log(`${ingredient} : ${item.name}`);
                     const FormatedContent = FormatContentUnit(item.contents, item.contentsUnit); //Fx: convert kg to g.
                     const formatedItem = {
                         name: item.name,
                         price: item.price,
-                        contents: FormatedContent.contents,
+                        contents: FormatedContent.content,
                         contentsUnit: FormatedContent.contentsUnit,
                         ingredientMatches: ingredient,
                         store: "Salling",
                         sku: item.sku,
                     }
+
+
                     //TODO: change query string to check if a SKU number already exist in the store!
-                    var queryString = `INSERT INTO "Food" VALUES (
+                    var queryString = `INSERT INTO "Food" SELECT
                     '${formatedItem.name}', 
                     ${formatedItem.price},
                     ${formatedItem.contents},
-                    ${formatedItem.contentsUnit}, 
+                    '${formatedItem.contentsUnit}', 
                     '${JSON.stringify(formatedItem.ingredientMatches)}', 
-                    '${formatedItem.store}'
-                    ${formatedItem.sku});`;
-                    if (await this.Query(queryString) === undefined) {
-                        console.log(queryString);
-                    }
+                    '${formatedItem.store}',
+                    ${formatedItem.sku}
+                    WHERE NOT EXISTS (SELECT 1 FROM "Food" WHERE store = '${formatedItem.store}' AND sku = '${formatedItem.sku}')`.trim();
+                    // console.log(queryString);
+                    // if (await this.Query(queryString) === undefined) {
+                    //     console.log(queryString);
+                    // }
 
                     function FormatContentUnit(content, unit) {
                         switch (unit) {
@@ -135,7 +387,7 @@ module.exports = class SQLHandler {
                         }
                     }
                 })
-            });
+            });*/
         } catch (error) {
             console.error('Error:', error);
             return false;
@@ -231,5 +483,26 @@ module.exports = class SQLHandler {
             return false;
         }
     }
+}
+// Source - https://stackoverflow.com/a/45489272
+// Posted by PeterMader
+// Retrieved 2026-03-26, License - CC BY-SA 3.0
+
+function waitForCondition(condition) {
+    return new Promise(resolve => {
+        var start_time = Date.now();
+        function checkFlag() {
+            if (conditionObj.arg == conditionObj.test) {
+                console.log('met');
+                resolve();
+            } else if (Date.now() > start_time + 3000) {
+                console.log('not met, time out');
+                resolve();
+            } else {
+                window.setTimeout(checkFlag, 1000);
+            }
+        }
+        checkFlag();
+    });
 }
 

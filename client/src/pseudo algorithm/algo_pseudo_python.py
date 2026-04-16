@@ -152,7 +152,7 @@ def find_cheapest_price(ingredient: str, price_data: dict, memory_scores: dict):
         føtex = price_data.get("føtex")
         rema = price_data.get("rema")
     except:
-        return None, None
+        return None, None, False
 
     # Finding cheapest price from each store
     price_bilka = 999999
@@ -193,9 +193,9 @@ def find_cheapest_price(ingredient: str, price_data: dict, memory_scores: dict):
     cheapest = scores[store]
 
     if cheapest == 999999:
-        return None, None
+        return None, None, False
 
-    return cheapest, store
+    return cheapest, store, True
 
 
 
@@ -213,6 +213,8 @@ def run_algorithm(amount: int = 1, # Amount of recipes needed
     recipes = data.get("recipes")
     ingredients_mapping = data.get("ingredients_mapping")
     price_data = data.get("prices")
+
+    basic_ingredients = ["water", "salt", "pepper", "sugar", "olive oil", "paprika", "curry", "basil"]
     
     # ====== Algorithm start ======
     results = {}
@@ -233,26 +235,37 @@ def run_algorithm(amount: int = 1, # Amount of recipes needed
                     continue
 
                 ingredients = []
+                ingredients_to_value = []
                 for n in range(1, 21):
                     ingredient = recipe.get(f"strIngredient{n}")
                     if ingredient is not None:
                         ingredient = ingredient.strip()
                     if ingredient:
                         ingredients.append(ingredient)
+                        if ingredient not in basic_ingredients:
+                            ingredients_to_value.append(ingredient)
+                        else:
+                            print(ingredient)
 
                 recipe_prices = {}
                 total_price = 0
-                for ingredient in ingredients:
+                is_valued = False
+                for ingredient in ingredients_to_value:
 
                     # Find the cheapest price in the cheapest store
                     ingredient_DK = ingredients_mapping[ingredient]
-                    cheapest_price, store = find_cheapest_price(ingredient_DK, price_data, memory_scores)
+                    cheapest_price, store, is_valued = find_cheapest_price(ingredient_DK, price_data, memory_scores)
+                    if not is_valued:
+                        break
                     if cheapest_price is None or store is None:
                         continue
 
                     # Collect the data in a dict and accumulate the total cost
                     recipe_prices[ingredient] = {"store": store, "price": cheapest_price}
                     total_price += cheapest_price
+
+                if not is_valued:
+                    continue
                 
                 # Check if the recipe price is within range of budget
                 if budget_min <= total_price <= budget_max:

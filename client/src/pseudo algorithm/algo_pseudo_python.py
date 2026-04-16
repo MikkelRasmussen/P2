@@ -4,8 +4,6 @@ The Pseudo code can be found in algo_pseudo.txt.
 
 TODO:
 1. Implement measurements and quantities of ingredients using mapping
-2. Skip recipes that cant be priced properly, meaning if at least 1 ingredient cant be valued
-3. Skip basic ingredients such as water, salt, pebber, etc.
 """
 
 
@@ -205,7 +203,7 @@ def find_cheapest_price(ingredient: str, price_data: dict, memory_scores: dict):
 def run_algorithm(amount: int = 1, # Amount of recipes needed
                   budget_min: float = 0, # Min price per recipe
                   budget_max: float = 9999, # Max price per recipe
-                  memory_scores: dict = None, # Memory of previous likes/dislikes of ingredients/recipes
+                  memory_scores: dict = {}, # Memory of previous likes/dislikes of ingredients/recipes
                 ) -> dict:
 
     # Initialising data for the algorithm
@@ -214,7 +212,30 @@ def run_algorithm(amount: int = 1, # Amount of recipes needed
     ingredients_mapping = data.get("ingredients_mapping")
     price_data = data.get("prices")
 
-    basic_ingredients = ["water", "salt", "pepper", "sugar", "olive oil", "paprika", "curry", "basil"]
+    basic_ingredients = {
+        "water", "boiling water", "cold water",
+        "salt", "sea salt", "kosher salt",
+        "pepper", "black pepper", "peppercorns", "whole black peppercorns",
+        "cayenne pepper", "chili powder", "chilli powder", "hot chilli powder",
+        "red chilli powder", "red pepper flakes",
+        "sugar", "vanilla sugar",
+        "olive oil", "extra virgin olive oil", "vegetable oil",
+        "sunflower oil", "rapeseed oil", "canola oil", "oil",
+        "butter", "unsalted butter", "salted butter", "melted butter",
+        "flour", "plain flour", "all purpose flour", "white flour", "cornstarch",
+        "baking powder", "bicarbonate of soda",
+        "paprika", "smoked paprika", "sweet smoked paprika",
+        "curry powder", "cumin", "ground cumin",
+        "cinnamon", "ground cinnamon", "nutmeg", "ground nutmeg",
+        "oregano", "dried oregano", "basil",
+        "thyme", "rosemary",
+        "allspice", "ground allspice",
+        "vinegar", "mustard", "dijon mustard",
+        "tomato ketchup", "mayonnaise",
+        "chicken stock", "chicken stock cube", "chicken bouillon powder",
+        "beef stock", "beef stock cubes", "beef stock concentrate",
+        "vegetable stock", "vegetable stock cube", "bouillon cubes"
+    }
     
     # ====== Algorithm start ======
     results = {}
@@ -242,10 +263,9 @@ def run_algorithm(amount: int = 1, # Amount of recipes needed
                         ingredient = ingredient.strip()
                     if ingredient:
                         ingredients.append(ingredient)
-                        if ingredient not in basic_ingredients:
+                        normalized_ingredient = ingredient.lower()
+                        if normalized_ingredient not in basic_ingredients:
                             ingredients_to_value.append(ingredient)
-                        else:
-                            print(ingredient)
 
                 recipe_prices = {}
                 total_price = 0
@@ -253,7 +273,10 @@ def run_algorithm(amount: int = 1, # Amount of recipes needed
                 for ingredient in ingredients_to_value:
 
                     # Find the cheapest price in the cheapest store
-                    ingredient_DK = ingredients_mapping[ingredient]
+                    try:
+                        ingredient_DK = ingredients_mapping[ingredient]
+                    except:
+                        continue
                     cheapest_price, store, is_valued = find_cheapest_price(ingredient_DK, price_data, memory_scores)
                     if not is_valued:
                         break

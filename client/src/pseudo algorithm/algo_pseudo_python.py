@@ -2,26 +2,30 @@
 I have made this Python code as a testing program.
 The Pseudo code can be found in algo_pseudo.txt.
 
-To run this example, you need to set the file paths below.
-You can leave the MEASUREMENTS_MAPPING_FILE_PATH blank, since
-i have not yet coded measurements into the algorithm.
+TODO:
+1. Implement measurements and quantities of ingredients using mapping
+2. Skip recipes that cant be priced properly, meaning if at least 1 ingredient cant be valued
+3. Skip basic ingredients such as water, salt, pebber, etc.
 """
 
 
 from colorama import Style, Fore, init
 import sys
+import json
+import traceback
+init()
 
 
 # File paths
-RECIPES_FILE_PATH = "" # File path to the database with recipes (i dont know how to handle SQL databases here, so keep that in mind)
+RECIPES_FILE_PATH = r"client\src\pseudo algorithm\data\recipes.json" # File path to the database with recipes (i dont know how to handle SQL databases here, so keep that in mind)
 
-INGREDIENTS_MAPPING_FILE_PATH = "" # File path to the mapping of ingredients
-MEASUREMENTS_MAPPING_FILE_PATH = "" # File path to the mapping of measurents
+INGREDIENTS_MAPPING_FILE_PATH = r"client\src\pseudo algorithm\data\mapping_ingredienser.json" # File path to the mapping of ingredients
+MEASUREMENTS_MAPPING_FILE_PATH = r"client\src\pseudo algorithm\data\mapping_måling.json" # File path to the mapping of measurents
 
-BILKA_PRICES_FILE_PATH = "" # File path to the database of Bilka prices
-NETTO_PRICES_FILE_PATH = "" # File path to the database of Netto prices
-FØTEX_PRICES_FILE_PATH = "" # File path to the database of Føtex prices
-REMA_PRICES_FILE_PATH = "" # File path to the database of Rema1000 prices
+BILKA_PRICES_FILE_PATH = r"client\src\pseudo algorithm\data\bilka_prices.json" # File path to the database of Bilka prices
+NETTO_PRICES_FILE_PATH = r"client\src\pseudo algorithm\data\netto_prices.json" # File path to the database of Netto prices
+FØTEX_PRICES_FILE_PATH = r"client\src\pseudo algorithm\data\føtex_prices.json" # File path to the database of Føtex prices
+REMA_PRICES_FILE_PATH = r"client\src\pseudo algorithm\data\rema_prices.json" # File path to the database of Rema1000 prices
 
 
 
@@ -81,40 +85,47 @@ def get_inputs():
 
 
 # Helper function to fetch price data from files
-def fetch_price_data():
-    try:
-        recipes = None
-        with open(RECIPES_FILE_PATH, "r") as f:
-            recipes = f.readlines()
+def fetch_data():
 
-        ingredients_mapping = None
-        with open(INGREDIENTS_MAPPING_FILE_PATH, "r") as f:
-            ingredients_mapping = f.readlines()
-
-        measurements_mapping = None
+    # Internal helper function to load a json file
+    def load_json_file(path, default=None, required=True):
         try:
-            with open(MEASUREMENTS_MAPPING_FILE_PATH, "r") as f:
-                measurements_mapping = f.readlines()
-        except:
-            pass
-
-        bilka_prices = None
-        with open(BILKA_PRICES_FILE_PATH, "r") as f:
-            bilka_prices = f.readlines()
-
-        netto_prices = None
-        with open(NETTO_PRICES_FILE_PATH, "r") as f:
-            netto_prices = f.readlines()
-
-        føtex_prices = None
-        with open(FØTEX_PRICES_FILE_PATH, "r") as f:
-            føtex_prices = f.readlines()
-
-        rema_prices = None
-        with open(REMA_PRICES_FILE_PATH, "r") as f:
-            rema_prices = f.readlines()
+            with open(path, "r", encoding="utf-8") as f:
+                return json.load(f)
+        except FileNotFoundError:
+            if required:
+                raise
+            return default
+        except json.JSONDecodeError as e:
+            raise ValueError(f"Invalid JSON in {path}: {e}")
         
-        return recipes, ingredients_mapping, measurements_mapping, bilka_prices, netto_prices, føtex_prices, rema_prices
+    # Loading the data files
+    try:
+        recipes = load_json_file(RECIPES_FILE_PATH)
+        ingredients_mapping = load_json_file(INGREDIENTS_MAPPING_FILE_PATH)
+        measurements_mapping = load_json_file(
+            MEASUREMENTS_MAPPING_FILE_PATH,
+            default=None,
+            required=False
+        )
+
+        bilka_prices = load_json_file(BILKA_PRICES_FILE_PATH)
+        netto_prices = load_json_file(NETTO_PRICES_FILE_PATH)
+        foetex_prices = load_json_file(FØTEX_PRICES_FILE_PATH)
+        rema_prices = load_json_file(REMA_PRICES_FILE_PATH)
+
+        return {
+            "recipes": recipes,
+            "ingredients_mapping": ingredients_mapping,
+            "measurements_mapping": measurements_mapping,
+            "prices": {
+                "bilka": bilka_prices,
+                "netto": netto_prices,
+                "føtex": foetex_prices,
+                "rema": rema_prices
+            }
+        }
+
     except Exception as e:
         print(Fore.RED + f"Error loading data from file:\n{e}\n")
         input(Fore.LIGHTBLACK_EX + "\nPress enter to close program..." + Style.RESET_ALL)
@@ -125,26 +136,42 @@ def fetch_price_data():
 
 
 # Helper function to determine the cheapest price from the cheapest store
-def find_cheapest_price(ingredient: str, bilka: list, netto: list, føtex: list, rema: list):
+def find_cheapest_price(ingredient: str, price_data: dict, memory_scores: dict):
+
+    try:
+        if ingredient in memory_scores:
+            score = memory_scores[ingredient]
+        else:
+            score = 1
+    except:
+        score = 1
+
+    try:
+        bilka = price_data.get("bilka")
+        netto = price_data.get("netto")
+        føtex = price_data.get("føtex")
+        rema = price_data.get("rema")
+    except:
+        return None, None
 
     # Finding cheapest price from each store
     price_bilka = 999999
     for i in range(len(bilka)):
         if ingredient in bilka[i]["description"]:
             if bilka[i]["price"] < price_bilka:
-                price_bilka = bilka[i]["price"]
+                price_bilka = bilka[i]["price"] * score
 
     price_netto = 999999
     for i in range(len(netto)):
         if ingredient in netto[i]["description"]:
             if netto[i]["price"] < price_netto:
-                price_netto = netto[i]["price"]
+                price_netto = netto[i]["price"] * score
 
     price_føtex = 999999
     for i in range(len(føtex)):
         if ingredient in føtex[i]["description"]:
             if føtex[i]["price"] < price_føtex:
-                price_føtex = føtex[i]["price"]
+                price_føtex = føtex[i]["price"] * score
 
     price_rema = 999999
     for department in rema["departments"]:
@@ -152,18 +179,18 @@ def find_cheapest_price(ingredient: str, bilka: list, netto: list, føtex: list,
             for item in category["items"]:
                 if ingredient.lower() in item["name"].lower():
                     if item["pricing"]["price"] < price_rema:
-                        price_rema = item["pricing"]["price"]
+                        price_rema = item["pricing"]["price"] * score
 
     # Comparing the cheapest price from each store with each other
-    prices = {
+    scores = {
         "bilka": price_bilka,
         "netto": price_netto,
         "føtex": price_føtex,
         "rema": price_rema
     }
 
-    store = min(prices, key=prices.get)
-    cheapest = prices[store]
+    store = min(scores, key=scores.get)
+    cheapest = scores[store]
 
     if cheapest == 999999:
         return None, None
@@ -176,15 +203,18 @@ def find_cheapest_price(ingredient: str, bilka: list, netto: list, føtex: list,
 # Main function to run the algorithm
 
 def run_algorithm(amount: int = 1, # Amount of recipes needed
-                  budget_min: int = 0, # min price per recipe
-                  budget_max: float = 9999, # max price per recipe
+                  budget_min: float = 0, # Min price per recipe
+                  budget_max: float = 9999, # Max price per recipe
+                  memory_scores: dict = None, # Memory of previous likes/dislikes of ingredients/recipes
                 ) -> dict:
 
     # Initialising data for the algorithm
-    recipes, ingredients_mapping, measurements_mapping, bilka_prices, netto_prices, føtex_prices, rema_prices = fetch_price_data()
-
+    data = fetch_data()
+    recipes = data.get("recipes")
+    ingredients_mapping = data.get("ingredients_mapping")
+    price_data = data.get("prices")
     
-    # Algorithm
+    # ====== Algorithm start ======
     results = {}
     for i in range(amount):
         candidates = {}
@@ -192,31 +222,47 @@ def run_algorithm(amount: int = 1, # Amount of recipes needed
         cheapest_candidate_name = None
         cheapest_candidate_stores = None
 
-        for recipe in recipes:
-            name = recipe["name"]
+        # Iterate through all recipes
+        for recipe_row in recipes:
+            meals = recipe_row.get("meals", [])
 
-            if name in results:
-                continue
+            for recipe in meals:
+                name = recipe["strMeal"]
 
-            ingredients = recipe["ingredients"]
-
-            ingredients_result = {}
-            total_price = 0
-            for ingredient in ingredients:
-                ingredient_DK = ingredients_mapping[ingredient]
-                cheapest_price, store = find_cheapest_price(ingredient_DK, bilka_prices, netto_prices, føtex_prices, rema_prices)
-                if any(cheapest_price, store) is None:
+                if name in results:
                     continue
-                ingredients_result["ingredient"] = {"store": store, "price": cheapest_price}
-                total_price += cheapest_price
-            
-            if budget_min <= cheapest_price <= budget_max:
-                candidates.append(name)
-                if total_price < cheapest_candidate_price:
-                    cheapest_candidate_price = total_price
-                    cheapest_candidate_name = name
-                    cheapest_candidate_stores = ingredients_result
 
+                ingredients = []
+                for n in range(1, 21):
+                    ingredient = recipe.get(f"strIngredient{n}")
+                    if ingredient is not None:
+                        ingredient = ingredient.strip()
+                    if ingredient:
+                        ingredients.append(ingredient)
+
+                recipe_prices = {}
+                total_price = 0
+                for ingredient in ingredients:
+
+                    # Find the cheapest price in the cheapest store
+                    ingredient_DK = ingredients_mapping[ingredient]
+                    cheapest_price, store = find_cheapest_price(ingredient_DK, price_data, memory_scores)
+                    if cheapest_price is None or store is None:
+                        continue
+
+                    # Collect the data in a dict and accumulate the total cost
+                    recipe_prices[ingredient] = {"store": store, "price": cheapest_price}
+                    total_price += cheapest_price
+                
+                # Check if the recipe price is within range of budget
+                if budget_min <= total_price <= budget_max:
+                    candidates[name] = recipe_prices
+                    if total_price < cheapest_candidate_price:
+                        cheapest_candidate_price = total_price
+                        cheapest_candidate_name = name
+                        cheapest_candidate_stores = recipe_prices
+
+        # Add cheapest recipe to results
         if cheapest_candidate_name: 
             results[cheapest_candidate_name] = {
                 "price": cheapest_candidate_price,
@@ -226,19 +272,29 @@ def run_algorithm(amount: int = 1, # Amount of recipes needed
     return results
         
 
+def print_results(results):
+    iteration = 1
+    total_recipes = len(results)
+    print(Fore.GREEN + "\n========== RESULTS ==========")
+    for name, data in results.items():
+        price = data.get("price")
+        print(Fore.CYAN + f">> Recipe {iteration}/{total_recipes}: {name} ({price:.1f} DKK)")
+        iteration += 1
+    print("\n")
 
 
 # Main function
 def main():
-
     budget_min, budget_max, recipes_amount = get_inputs()
+    memory_scores = {}
 
     try:
-        results = run_algorithm(recipes_amount, budget_min, budget_max)
-        print(results)
+        results = run_algorithm(recipes_amount, budget_min, budget_max, memory_scores)
+        print_results(results)
     except Exception as e:
-        print(Fore.RED + f"ERROR:\n{e}")
-        input(Fore.LIGHTBLACK_EX + "\nPress enter to close program..." + Style.RESET_ALL)
+        print(Fore.RED + f"\nERROR:\n" + Fore.LIGHTBLACK_EX)
+        traceback.print_exc()
+        input(Style.RESET_ALL + "\nPress enter to close program...")
 
 
 

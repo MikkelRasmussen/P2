@@ -1,12 +1,12 @@
 BEGIN
 
-    SET recipe file path
-    SET ingredient mapping file path
-    SET measurement mapping file path
-    SET Bilka price file path
-    SET Netto price file path
-    SET Foetex price file path
-    SET Rema1000 price file path
+    SET file path for recipes
+    SET file path for ingredient mapping
+    SET file path for measurement mapping
+    SET file path for Bilka prices
+    SET file path for Netto prices
+    SET file path for Foetex prices
+    SET file path for Rema prices
 
 
     FUNCTION GetInputs
@@ -15,16 +15,14 @@ BEGIN
             ASK user for minimum price per recipe
             READ budgetMin
 
-            IF budgetMin is not a number THEN
-                DISPLAY "Please choose a number"
-                WAIT for user to try again
-
+            IF budgetMin is not a valid number THEN
+                DISPLAY error message
+                WAIT for user
             ELSE IF budgetMin is less than 0 THEN
-                DISPLAY "Please choose a number above 0"
-                WAIT for user to try again
-
+                DISPLAY error message
+                WAIT for user
             ELSE
-                STOP loop
+                EXIT loop
             END IF
         END REPEAT
 
@@ -33,20 +31,17 @@ BEGIN
             ASK user for maximum price per recipe
             READ budgetMax
 
-            IF budgetMax is not a number THEN
-                DISPLAY "Please choose a number"
-                WAIT for user to try again
-
+            IF budgetMax is not a valid number THEN
+                DISPLAY error message
+                WAIT for user
             ELSE IF budgetMax is less than budgetMin THEN
-                DISPLAY "Max price can not be lower than minimum price"
-                WAIT for user to try again
-
+                DISPLAY error message
+                WAIT for user
             ELSE IF budgetMax is less than or equal to 0 THEN
-                DISPLAY "Please choose a number above 0"
-                WAIT for user to try again
-
+                DISPLAY error message
+                WAIT for user
             ELSE
-                STOP loop
+                EXIT loop
             END IF
         END REPEAT
 
@@ -56,15 +51,13 @@ BEGIN
             READ recipesAmount
 
             IF recipesAmount is not a whole number THEN
-                DISPLAY "Please choose a whole number"
-                WAIT for user to try again
-
+                DISPLAY error message
+                WAIT for user
             ELSE IF recipesAmount is less than or equal to 0 THEN
-                DISPLAY "Please choose a number above 0"
-                WAIT for user to try again
-
+                DISPLAY error message
+                WAIT for user
             ELSE
-                STOP loop
+                EXIT loop
             END IF
         END REPEAT
 
@@ -74,28 +67,46 @@ BEGIN
 
 
 
-    FUNCTION FetchPriceData
+    FUNCTION FetchData
 
-        TRY
-            LOAD recipes
-            LOAD ingredientsMapping
+        FUNCTION LoadJsonFile(path, defaultValue, required)
 
             TRY
-                LOAD measurementsMapping
-            CATCH error
-                SET measurementsMapping to empty value
+                OPEN file at path
+                READ JSON data
+                RETURN JSON data
+
+            IF file does not exist THEN
+                IF required is true THEN
+                    RAISE error
+                ELSE
+                    RETURN defaultValue
+                END IF
+
+            IF JSON is invalid THEN
+                RAISE error
             END TRY
 
-            LOAD bilkaPrices
-            LOAD nettoPrices
-            LOAD foetexPrices
-            LOAD remaPrices
+        END FUNCTION
 
-            RETURN recipes, ingredientsMapping, measurementsMapping,
-                   bilkaPrices, nettoPrices, foetexPrices, remaPrices
 
-        CATCH error
-            DISPLAY "Error loading data from file"
+        TRY
+            LOAD recipes from recipe file
+            LOAD ingredientsMapping from ingredient mapping file
+            LOAD measurementsMapping from measurement mapping file if available
+            LOAD Bilka prices
+            LOAD Netto prices
+            LOAD Foetex prices
+            LOAD Rema prices
+
+            RETURN a data structure containing:
+                recipes
+                ingredientsMapping
+                measurementsMapping
+                prices for all stores
+
+        IF an error occurs THEN
+            DISPLAY error message
             WAIT for user
             CLOSE program
         END TRY
@@ -104,130 +115,155 @@ BEGIN
 
 
 
-    FUNCTION FindCheapestPrice(ingredient, bilka, netto, foetex, rema)
+    FUNCTION FindCheapestPrice(ingredient, priceData, memoryScores)
 
-        SET priceBilka to a very large number
-        FOR EACH item in bilka
+        IF ingredient exists in memoryScores THEN
+            SET score to memoryScores[ingredient]
+        ELSE
+            SET score to 1
+        END IF
+
+        GET Bilka, Netto, Foetex, and Rema price data from priceData
+
+        SET BilkaPrice to a very large number
+        FOR EACH item in Bilka data
             IF ingredient is found in item description THEN
-                IF item price is lower than priceBilka THEN
-                    SET priceBilka to item price
+                IF item price is lower than BilkaPrice THEN
+                    SET BilkaPrice to item price multiplied by score
                 END IF
             END IF
         END FOR
 
-
-        SET priceNetto to a very large number
-        FOR EACH item in netto
+        SET NettoPrice to a very large number
+        FOR EACH item in Netto data
             IF ingredient is found in item description THEN
-                IF item price is lower than priceNetto THEN
-                    SET priceNetto to item price
+                IF item price is lower than NettoPrice THEN
+                    SET NettoPrice to item price multiplied by score
                 END IF
             END IF
         END FOR
 
-
-        SET priceFoetex to a very large number
-        FOR EACH item in foetex
+        SET FoetexPrice to a very large number
+        FOR EACH item in Foetex data
             IF ingredient is found in item description THEN
-                IF item price is lower than priceFoetex THEN
-                    SET priceFoetex to item price
+                IF item price is lower than FoetexPrice THEN
+                    SET FoetexPrice to item price multiplied by score
                 END IF
             END IF
         END FOR
 
-
-        SET priceRema to a very large number
-        FOR EACH department in rema departments
+        SET RemaPrice to a very large number
+        FOR EACH department in Rema departments
             FOR EACH category in department categories
                 FOR EACH item in category items
                     IF ingredient is found in item name THEN
-                        IF item pricing price is lower than priceRema THEN
-                            SET priceRema to item pricing price
+                        IF item price is lower than RemaPrice THEN
+                            SET RemaPrice to item price multiplied by score
                         END IF
                     END IF
                 END FOR
             END FOR
         END FOR
 
-
-        CREATE prices with:
-            bilka = priceBilka
-            netto = priceNetto
-            foetex = priceFoetex
-            rema = priceRema
+        CREATE a collection of store prices:
+            Bilka
+            Netto
+            Foetex
+            Rema
 
         FIND the store with the lowest price
-        SET cheapest to the lowest price
-        SET store to the matching store name
+        SET cheapestPrice to that lowest price
+        SET cheapestStore to that store
 
-        IF cheapest is still the very large number THEN
+        IF cheapestPrice was not found THEN
             RETURN NULL, NULL
         END IF
 
-        RETURN cheapest, store
+        RETURN cheapestPrice, cheapestStore
 
     END FUNCTION
 
 
 
-    FUNCTION RunAlgorithm(amount, budgetMin, budgetMax)
+    FUNCTION RunAlgorithm(amount, budgetMin, budgetMax, memoryScores)
 
-        LOAD all data by calling FetchPriceData
+        LOAD all data using FetchData
+
+        GET recipes from data
+        GET ingredient mapping from data
+        GET store prices from data
 
         SET results to empty collection
 
-        FOR each number from 1 to amount
+        REPEAT amount times
 
             SET cheapestCandidatePrice to a very large number
             SET cheapestCandidateName to NULL
             SET cheapestCandidateStores to NULL
+            SET candidates to empty collection
 
-            FOR EACH recipe in recipes
+            FOR EACH recipeRow in recipes
 
-                SET name to recipe name
+                GET meals from recipeRow
 
-                IF name already exists in results THEN
-                    SKIP this recipe
-                END IF
+                FOR EACH recipe in meals
 
-                SET ingredients to recipe ingredients
-                SET ingredientsResult to empty collection
-                SET totalPrice to 0
+                    SET name to recipe meal name
 
-                FOR EACH ingredient in ingredients
-
-                    SET ingredientDK to translated ingredient from ingredientsMapping
-
-                    CALL FindCheapestPrice with ingredientDK and all store price data
-                    RECEIVE cheapestPrice and store
-
-                    IF cheapestPrice is NULL OR store is NULL THEN
-                        SKIP this ingredient
+                    IF name already exists in results THEN
+                        SKIP this recipe
                     END IF
 
-                    SAVE ingredient with its store and price in ingredientsResult
-                    ADD cheapestPrice to totalPrice
+                    SET ingredients to empty list
+
+                    FOR number from 1 to 20
+                        GET ingredient field from recipe
+                        CLEAN the ingredient text
+                        IF ingredient exists THEN
+                            ADD ingredient to ingredients list
+                        END IF
+                    END FOR
+
+                    SET recipePrices to empty collection
+                    SET totalPrice to 0
+
+                    FOR EACH ingredient in ingredients
+
+                        TRANSLATE ingredient to Danish using ingredient mapping
+
+                        FIND cheapest price and cheapest store by calling FindCheapestPrice
+
+                        IF no price or store is found THEN
+                            SKIP this ingredient
+                        END IF
+
+                        SAVE ingredient price and store in recipePrices
+                        ADD cheapest price to totalPrice
+
+                    END FOR
+
+                    IF totalPrice is between budgetMin and budgetMax THEN
+                        SAVE recipe in candidates
+
+                        IF totalPrice is lower than cheapestCandidatePrice THEN
+                            SET cheapestCandidatePrice to totalPrice
+                            SET cheapestCandidateName to name
+                            SET cheapestCandidateStores to recipePrices
+                        END IF
+                    END IF
 
                 END FOR
-
-                IF cheapestPrice is between budgetMin and budgetMax THEN
-                    IF totalPrice is lower than cheapestCandidatePrice THEN
-                        SET cheapestCandidatePrice to totalPrice
-                        SET cheapestCandidateName to name
-                        SET cheapestCandidateStores to ingredientsResult
-                    END IF
-                END IF
 
             END FOR
 
             IF cheapestCandidateName exists THEN
-                SAVE in results:
+                ADD recipe to results with:
                     recipe name
                     total price
                     ingredient store details
             END IF
 
-        END FOR
+        END REPEAT
 
         RETURN results
 
@@ -237,16 +273,16 @@ BEGIN
 
     FUNCTION Main
 
-        CALL GetInputs
-        RECEIVE budgetMin, budgetMax, recipesAmount
+        GET budgetMin, budgetMax, and recipesAmount from GetInputs
+        SET memoryScores to empty collection
 
         TRY
-            CALL RunAlgorithm with recipesAmount, budgetMin, and budgetMax
-            DISPLAY results
+            RUN algorithm with recipesAmount, budgetMin, budgetMax, and memoryScores
+            STORE result in results
 
-        CATCH error
-            DISPLAY "ERROR"
-            DISPLAY error
+        IF an error occurs THEN
+            DISPLAY error message
+            DISPLAY full error details
             WAIT for user
         END TRY
 

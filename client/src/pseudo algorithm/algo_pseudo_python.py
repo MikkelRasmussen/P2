@@ -255,22 +255,27 @@ def run_algorithm(amount: int = 1, # Amount of recipes needed
                 if name in results:
                     continue
 
-                ingredients = []
                 ingredients_to_value = []
                 for n in range(1, 21):
                     ingredient = recipe.get(f"strIngredient{n}")
+                    measure = recipe.get(f"strMeasure{n}")
                     if ingredient is not None:
                         ingredient = ingredient.strip()
+                    if measure is not None:
+                        measure = measure.strip()
                     if ingredient:
-                        ingredients.append(ingredient)
                         normalized_ingredient = ingredient.lower()
                         if normalized_ingredient not in basic_ingredients:
-                            ingredients_to_value.append(ingredient)
+                            ingredients_to_value.append({
+                                "name": ingredient,
+                                "measure": measure or ""
+                            })
 
                 recipe_prices = {}
                 total_price = 0
                 is_valued = False
-                for ingredient in ingredients_to_value:
+                for ingredient_data in ingredients_to_value:
+                    ingredient = ingredient_data["name"]
 
                     # Find the cheapest price in the cheapest store
                     try:
@@ -284,7 +289,11 @@ def run_algorithm(amount: int = 1, # Amount of recipes needed
                         continue
 
                     # Collect the data in a dict and accumulate the total cost
-                    recipe_prices[ingredient] = {"store": store, "price": cheapest_price}
+                    recipe_prices[ingredient] = {
+                        "measure": ingredient_data["measure"],
+                        "store": store,
+                        "price": cheapest_price
+                    }
                     total_price += cheapest_price
 
                 if not is_valued:
@@ -308,15 +317,26 @@ def run_algorithm(amount: int = 1, # Amount of recipes needed
     return results
         
 
+# Function to print results for the test
 def print_results(results):
     iteration = 1
     total_recipes = len(results)
-    print(Fore.GREEN + "\n========== RESULTS ==========")
+    print(Fore.GREEN + "\n==================== RESULTS ====================")
     for name, data in results.items():
         price = data.get("price")
-        print(Fore.CYAN + f">> Recipe {iteration}/{total_recipes}: {name} ({price:.1f} DKK)")
+        print(Fore.CYAN + f">> Recipe {iteration}/{total_recipes}: {name} ({price:.1f} DKK)" + Style.RESET_ALL)
+        for ingredient, ingredient_data in data.get("stores", {}).items():
+            measure = ingredient_data.get("measure", "").strip()
+            store = ingredient_data.get("store")
+            price_text = f"{ingredient_data.get('price', 0)} DKK"
+            if measure:
+                print(f"{measure} {ingredient} ({price_text} - {store})")
+            else:
+                print(f"{ingredient} ({price_text} - {store})")
         iteration += 1
-    print("\n")
+        if not iteration == total_recipes+1:
+            print("")
+    print(Fore.GREEN + "=================================================\n\n" + Style.RESET_ALL)
 
 
 # Main function

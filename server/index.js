@@ -233,7 +233,7 @@ app.listen(PORT, () => {
 const sql = require('./SQLHandler/SQLHandler.js');
 const sqlHandler = new sql();
 
-const sqlTask = new Promise(async (res, rej) => {
+const sqlTask = () => new Promise(async (res, rej) => {
   console.log(process.cwd());
   await sqlHandler.Connect("localhost", "postgres", "Post2025", 5432);
 
@@ -255,10 +255,12 @@ const sqlTask = new Promise(async (res, rej) => {
 
   //Match all store products to ingredients, with a match score to determine certainty
   await sqlHandler.CreateIngredientMatches();
-  
+
   // await sqlHandler.GetCheapestPriceForAllRecipe();
   res();
 });
+sqlTask();
+const updateInterval = setInterval(sqlTask, 1000 * 60 * 60 * 24);
 
 /*
 const path = require('path');

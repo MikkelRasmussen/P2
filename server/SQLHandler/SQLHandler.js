@@ -21,7 +21,9 @@ function GetTimeStamp() {
     };
 }
 
-const ollamaUrl = "https://vector-layout-now-engagement.trycloudflare.com"; "http://127.0.0.1:11434";
+console.log(FormatContentUnitFromString("1 bæger"));
+
+const ollamaUrl = "https://show-attacked-renewable-basically.trycloudflare.com"; "http://127.0.0.1:11434";
 const ingrediantEmbeddings = [];
 
 module.exports = class SQLHandler {
@@ -105,40 +107,13 @@ module.exports = class SQLHandler {
             return (match / word1.length);
         }
 
-
-        var match = ScoreWordMatch("italienske fennikelpølser", "Grillpølser m. ost 62% kød");
-        // console.log(match);
-        // match = ScoreWordMatch("tyske pølser", "Grillpølser m. ost 62% kød")
-        // console.log(match);
-        // match = ScoreWordMatch("øl", "Grillpølser m. ost 62% kød")
-        // console.log(match);
-        // var match = ScoreWordMatch("mandler", "mandler")
-        // console.log(match);
-        // return;
-        if (!this.#InsureFoodDatabase()) {
+        if (!this.#InsureDatabase()) {
             console.error("Could not insure the existance of the food table!");
             return false;
         }
         try {
-            var queryResult = await this.Query('SELECT name, sku, store FROM "Food"')
+            var queryResult = await this.Query(`SELECT * FROM "Food" where store = '${store}'`)
             if (queryResult === undefined) return false;
-            console.log(queryResult);
-            // var getValidIngredientsQuery = `SELECT DISTINCT (json_extract_path_text(json_array_elements(ingredients), 'ingredient')) 
-            // AS ingredient FROM "Recipes";`
-            // var ingredientsQueryResult = await this.Query(getValidIngredientsQuery);
-            // if (ingredientsQueryResult === undefined) return false;
-            // ingredientsQueryResult = Array.from(ingredientsQueryResult).map(e => String(e.ingredient));
-
-            // ingredientsQueryResult.forEach(e => {
-            //     e.embedding = ingrediantEmbeddings[e.ingredient];
-            // });
-
-            // var ingredientChunkSize = 100;
-            // var ingredientChunks = []
-            // for (var i = 0; i < ingredientsQueryResult.length; i += ingredientChunkSize) {
-            //     let chunk = ingredientsQueryResult.slice(i, Math.min(i + ingredientChunkSize, ingredientsQueryResult.length));
-            //     ingredientChunks.push(chunk.filter(e => e.embedding === undefined));
-            // }
 
             console.info("Reading cache...");
             var readSeconds = Date.now();
@@ -174,17 +149,31 @@ module.exports = class SQLHandler {
             console.log('Results:', data.results);
             console.log('Full response:', data);
 
-            //.filter(e => !queryResult.some(f => f.sku === e.sku && f.store === e.store))
-
-            var items = Array.from(await data.results.map(e => e.data).flat()).map(e => {
+            var items = Array.from(data.results.map(e => e.data).flat()).map(e => {
                 const itemLowerCase = String(e.name).toLowerCase();
                 //Remove keywords found in the ingredientCutoutKeywords.json, such as "Øko".
                 let lowerCasedCleaned = itemLowerCase;
                 cutoutMap.keyword.forEach(f => lowerCasedCleaned = ` ${lowerCasedCleaned} `.replace(` ${f} `, ""));
                 e.lowerCaseCleaned = lowerCasedCleaned.trim();
                 return e;
-            });
+            }).filter(e => {
+                if (e.inStock === false) return false;
+                if (e.lowerCaseCleaned === "vand") return false
+                const checkValue = queryResult.find(f => f.sku === e.sku);
+                if (checkValue === undefined)
+                    return true;
 
+                const format = FormatContentUnit(e.contents, e.contentsUnit);
+                if (format.content !== checkValue.contents)
+                    return true;
+
+                if (format.contentsUnit !== checkValue.contentsunit)
+                    return true;
+
+
+                return false;
+            });
+            console.log(`${store}: ${items.length} / ${data.results.map(e => e.data).flat().length} needs refreshing`);
             var itemChunkSize = 100;
             var itemChunks = []
             for (var i = 0; i < items.length; i += itemChunkSize) {
@@ -206,30 +195,6 @@ module.exports = class SQLHandler {
             const modelList = await connectionTestReponse.json();
             if (modelList.models.filter(e => String(e.name).startsWith("qwen3-embedding")).length <= 0) throw 'No "qwen3-embedding" model was found!';
 
-            // const ingredientEmbedding = new Promise(async (res, rej) => {
-            //     console.log(`Embedding ingredients... (0 / ${ingredientChunks.length})`);
-            //     for (var i = 0; i < ingredientChunks.length; i++) {
-            //         const body = {
-            //             model: "qwen3-embedding",
-            //             input: ingredientChunks[i].map(e => e.ingredient.toLowerCase()),
-            //         };
-            //         const answer = await fetch(ollamaUrl + "/api/embed", { method: "POST", body: JSON.stringify(body), keepalive: true });
-            //         const answerText = await answer.text();
-            //         if (!await isJson(answerText)) {
-            //             rej(`Answer text is not json! ${answerText}`);
-            //             return;
-            //         }
-            //         const reponseObject = JSON.parse(answerText);
-            //         const embeddings = reponseObject.embeddings;
-            //         for (var l = 0; l < embeddings.length; l++) {
-            //             ingredientsQueryResult[i * 100 + l].embedding = embeddings[l];
-            //             ingrediantEmbeddings[ingredientsQueryResult[i * 100 + l].ingredient] = embeddings[l];
-            //         }
-            //         console.log(`Embedding ingredients... (${i + 1} / ${ingredientChunks.length})`);
-            //     }
-            //     res(ingredientsQueryResult);
-            // });
-
             const itemEmbedding = new Promise(async (res, rej) => {
                 console.log(`Embedding items... (0 / ${itemChunks.length})`);
                 for (var i = 0; i < itemChunks.length; i++) {
@@ -245,16 +210,19 @@ module.exports = class SQLHandler {
                     }
                     const reponseObject = JSON.parse(answerText);
                     const embeddings = reponseObject.embeddings;
-                    for (var l = 0; l < embeddings.length; l++) {
-                        items[i * 100 + l].embedding = embeddings[l];
+                    if (itemChunks[i].length != embeddings.length) throw "LENGTH NO MATCH!";
+                    for (var l = 0; l < itemChunks[i].length; l++) {
+                        const itemMatch = items.find(e => e.sku === itemChunks[i][l].sku);
+                        if (itemMatch === undefined) throw "NO MATCH!";
+                        itemMatch.embedding = embeddings[l];
                     }
                     console.log(`Embedding items... (${i + 1} / ${itemChunks.length})`);
                 }
                 res(items);
             });
             await Promise.all([itemEmbedding]);
-            console.log(itemEmbedding);
-            // console.log(ingredientsQueryResult)
+            if (items.some(e => e.embedding === undefined))
+                throw "Some embeddings where undefined!";
             console.timeEnd("fetchTime")
 
             console.time("Item catalouge time");
@@ -263,36 +231,7 @@ module.exports = class SQLHandler {
 
                 if (item.inStock === false) continue;
                 const itemLowerCase = String(item.name).toLowerCase();
-                if (itemLowerCase === "vand") continue;
-                /*
-                var ingredient = ingredientsQueryResult
-                    .map(e => { return { score: ScoreWordMatch(e.ingredient, item.lowerCaseCleaned), name: e.ingredient } })
-                    .filter(e => e.score > 0.25)
-                    .sort((a, b) => {
-                        if (a.score > b.score) return -1;
-                        else if (a.score < b.score) return 1;
-                        else return 0;
-                    });
-                var ing = ingredient.map(e => `\n{${e.score}, ${String(e.ingredient)}}`);
-                if (ingredient.length <= 0) continue;
-                console.groupCollapsed(`${items[i].name} ScoreMatch: (${i} / ${items.length - 1})`);
-                console.log(`${ing}`.substring(1));
-                console.groupEnd();
-                */
 
-                // var embeddings = ingredientsQueryResult
-                //     .map(e => { return { score: cosinesim(item.embedding, e.embedding), name: e.ingredient } })
-                //     .sort((a, b) => {
-                //         if (a.score > b.score) return -1;
-                //         else if (a.score < b.score) return 1;
-                //         else return 0;
-                //     }).filter(e => e.score > 0.85);
-
-                // console.groupCollapsed(`${items[i].name} (${i} / ${items.length - 1})`);
-                // console.log(`${embeddings.map(e => `\n{${e.score}, ${String(e.name)}}`)}`.substring(1));
-                // console.groupEnd();
-
-                // if (embeddings.length < 1) continue; //Ignore empty ingredient lists.
                 const FormatedContent = FormatContentUnit(item.contents, item.contentsUnit); //Fx: convert kg to g.
                 const formatedItem = {
                     name: item.name,
@@ -323,7 +262,7 @@ module.exports = class SQLHandler {
                     contentsunit='${formatedItem.contentsUnit}', 
                     embedding='${formatedItem.embedding}'
                     `.trim();
-                // console.log(queryString);
+
                 if (await this.Query(queryString) === undefined) {
                     // console.log(queryString);
                     console.error(formatedItem);
@@ -406,7 +345,7 @@ module.exports = class SQLHandler {
     }
 
     async ImportRecipes() {
-        if (!this.#InsureRecipeDatabase()) {
+        if (!this.#InsureDatabase()) {
             console.error("Could not insure the existance of the recipes table!");
             return false;
         }
@@ -435,19 +374,21 @@ module.exports = class SQLHandler {
             console.log('Results:', data.results);
             console.log('Full response:', data);
 
+            const queryResult = await this.Query('SELECT name FROM "Recipes"')
+            if (queryResult === undefined) return false;
 
+            const recipes = Array.from(data.results).flatMap(e => Array.isArray(e.data.meals) ? e.data.meals : undefined)
+                .filter(e => e !== undefined)
+                .filter(e => !queryResult.some(f => f.name === e["strMeal"].replaceAll("'", "`")));
+            if (recipes.length <= 0) return true;
 
             var ingList = [];
-            data.results.forEach(result => {
-                if (result.data !== undefined && Array.isArray(result.data.meals))
-                    result.data.meals.forEach(item => {
-                        var ingMesList = GenerateIngredientListWithMesures(item);
-                        ingMesList.forEach(e => e.recipe = item["strMeal"].replaceAll("'", "`"));
-                        ingList.push(ingMesList);
-                    })
-            });
+            recipes.forEach(item => {
+                var ingMesList = GenerateIngredientListWithMesures(item);
+                ingMesList.forEach(e => e.recipe = item["strMeal"].replaceAll("'", "`"));
+                ingList.push(ingMesList);
+            })
             ingList = ingList.flat();
-
 
             var ingredientChunkSize = 100;
             var ingredientChunks = []
@@ -488,23 +429,19 @@ module.exports = class SQLHandler {
             })} ON CONFLICT DO NOTHING;`;
             console.log("ingrediantsAddQuery");
 
-            data.results.forEach(result => {
-                console.log(result);
-                if (result.data !== undefined && Array.isArray(result.data.meals))
-                    result.data.meals.forEach(async item => {
-                        var ingMesList = GenerateIngredientListWithMesures(item);
-                        var cat = item["strCategory"].replaceAll("'", "`");
-                        var name = item["strMeal"].replaceAll("'", "`");
-                        var instruct = item["strInstructions"].replaceAll("'", "`");
-                        var url = item["strMealThumb"].replaceAll("'", "`");
-                        var queryString =
-                            `INSERT INTO "Recipes" VALUES ('${name}', '${JSON.stringify(ingMesList)}', '${instruct}', '${cat}', '${url}') ON CONFLICT DO NOTHING;`;
-                        // console.log(queryString);
-                        if (await this.Query(queryString) === undefined) {
-                            // console.error(queryString);
-                        }
-                    })
-            });
+            recipes.forEach(async item => {
+                var ingMesList = GenerateIngredientListWithMesures(item);
+                var cat = item["strCategory"].replaceAll("'", "`");
+                var name = item["strMeal"].replaceAll("'", "`");
+                var instruct = item["strInstructions"].replaceAll("'", "`");
+                var url = item["strMealThumb"].replaceAll("'", "`");
+                var queryString =
+                    `INSERT INTO "Recipes" VALUES ('${name}', '${JSON.stringify(ingMesList)}', '${instruct}', '${cat}', '${url}') ON CONFLICT DO NOTHING;`;
+                // console.log(queryString);
+                if (await this.Query(queryString) === undefined) {
+                    // console.error(queryString);
+                }
+            })
             if (await this.Query(ingrediantsAddQuery) === undefined) {
                 // console.error(queryString);
             }
@@ -540,8 +477,8 @@ module.exports = class SQLHandler {
 
     async CreateIngredientMatches() {
         console.log("Matching wares and ingredients...");
-        const ingrediants = await this.Query('SELECT id, recipe, embedding FROM "Ingredients"');
-        const food = await this.Query('SELECT id, embedding FROM "Food"');
+        const ingrediants = await this.Query('SELECT id, recipe, embedding, measurement FROM "Ingredients"');
+        const food = await this.Query('SELECT id, embedding, contentsunit FROM "Food"');
         if (food === undefined || ingrediants === undefined) {
             throw `${food === undefined ? "FOOD IS UNDEFINED" : ""} ${ingrediants === undefined ? "INGREDIANTS IS UNDEFINED" : ""}`
             return false;
@@ -553,6 +490,13 @@ module.exports = class SQLHandler {
         const matches = [];
         ingrediants.forEach((e, i1) => {
             food.forEach((f, i2) => {
+                const messure = FormatContentUnitFromString(e.measurement)
+                const unitCheck = messure.contentsUnit === f.contentsunit || (f.contentsunit === "stk" &&
+                    messure.contentsUnit !== "g" &&
+                    messure.contentsUnit !== "ml" &&
+                    messure.contentsUnit !== "stk"); ////<------- Potential check for messuerement match so to exclude matches that doesnt share the same unit
+
+
                 var lProg = (i1 * food.length + i2) / (ingrediants.length * food.length) * 100;
                 if (Math.round(lProg) > progress) {
                     progress = Math.round(lProg);
@@ -566,6 +510,8 @@ module.exports = class SQLHandler {
 
                     console.log(`Match progress: ${bar} ${progress}% (${i1 * food.length + i2} / ${ingrediants.length * food.length})`)
                 }
+                if (!unitCheck) return;
+
                 const similarity = cosinesim(e.embedding, f.embedding);
                 if (similarity > 0.85) {
                     const matchObject = { food: f.id, recipe: e.recipe, match: similarity, ingredient: e.id };
@@ -574,10 +520,10 @@ module.exports = class SQLHandler {
             })
         });
 
+
         console.log("Creating Query string")
         progress = 0;
         var addQuery = `INSERT INTO "IngredientMatches" VALUES ${matches.map((e, i) => {
-            // console.log(`${i + 1} / ${matches.length}`)
             var lProg = i / matches.length * 100;
             if (Math.round(lProg) > progress) {
                 progress = Math.round(lProg);
@@ -592,7 +538,6 @@ module.exports = class SQLHandler {
             }
             return `(DEFAULT, ${e.food}, '${e.recipe}', ${e.match}, ${e.ingredient})`;
         })} ON CONFLICT DO NOTHING;`;
-
         console.log("Sending query to SQL server")
         if (await this.Query(addQuery) === undefined) {
             console.error("ERROR");
@@ -606,7 +551,7 @@ module.exports = class SQLHandler {
         const maxIng = await this.Query(getMaxIngCmd)
         const maxIngMap = [];
         maxIng.forEach(e => maxIngMap[e.recipe] = parseFloat(e.count));
-        console.log(answer);
+
         const recipes = [];
         answer.forEach(e => {
             if (recipes[e.recipe] === undefined)
@@ -615,7 +560,7 @@ module.exports = class SQLHandler {
             if (r.ing[e.ingredient] === undefined) {
                 r.ing[e.ingredient] = e;
             } else {
-                const rIng =r.ing[e.ingredient];
+                const rIng = r.ing[e.ingredient];
                 const rPrice = parseFloat(rIng.price.match(/\d*?\.\d*/gms, "")[0]);
                 const ePrice = parseFloat(e.price.match(/\d*?\.\d*/gms, "")[0]);
 
@@ -654,10 +599,24 @@ module.exports = class SQLHandler {
             return false;
         }
     }
+
     async #InsureFoodDatabase() {
         const queryText = fs.readFileSync("./server/SQLHandler/SQLCmdTexts/CreateFoodDB.sql", 'utf8');
         try {
             await this.Query(queryText);
+            return true;
+        } catch (error) {
+            console.error(error);
+            return false;
+        }
+    }
+
+    async #InsureDatabase() {
+        const queryText = fs.readFileSync("./server/SQLHandler/SQLCmdTexts/CreateDB.sql", 'utf8').match(/CREATE.*?;/gms);
+        try {
+            for (var i = 0; i < queryText.length; i++) {
+                await this.Query(queryText[i]);
+            }
             return true;
         } catch (error) {
             console.error(error);
@@ -809,7 +768,7 @@ function FormatContentUnitFromString(text) {
     }
 }
 function FormatContentUnit(content, unit) {
-    switch (unit) {
+    switch (unit.toLowerCase()) {
         case "g":
             return { content: content, contentsUnit: "g" };
         case "kg":
@@ -818,9 +777,16 @@ function FormatContentUnit(content, unit) {
             return { content: (content * 15), contentsUnit: "ml" };
         case "tsk":
             return { content: (content * 5), contentsUnit: "ml" };
+        case "dl":
+            return { content: (content * 100), contentsUnit: "ml" };
+        case "lb":
+            return { content: (content * 1000), contentsUnit: "ml" };
+        case "l":
+            return { content: (content * 1000), contentsUnit: "ml" };
+        case "cl":
+            return { content: (content * 10), contentsUnit: "ml" };
         case "hakket":
             return { content: content, contentsUnit: "stk" };
-        case "":
         case undefined:
             return { content: content, contentsUnit: "stk" };
         default:

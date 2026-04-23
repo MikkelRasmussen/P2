@@ -3,5 +3,7 @@ CREATE TABLE IF NOT EXISTS "Recipes" (
 	"ingredients" JSON NOT NULL,
 	"instructions " TEXT NOT NULL,
 	"category" TEXT NOT NULL,
-	UNIQUE ("name")
+	"imageurl" TEXT NOT NULL,
+	UNIQUE ("name"),
+	PRIMARY KEY ("name")
 );

@@ -232,17 +232,33 @@ app.listen(PORT, () => {
 
 const sql = require('./SQLHandler/SQLHandler.js');
 const sqlHandler = new sql();
-(async () => {
+
+const sqlTask = new Promise(async (res, rej) => {
   console.log(process.cwd());
   await sqlHandler.Connect("localhost", "postgres", "Post2025", 5432);
-  // await sqlHandler.ImportRecipes();
+
+  //Import and embed recipes and determine ingredients
+  const couldImport = await sqlHandler.ImportRecipes();
+  if (!couldImport) {
+    rej("Could not import recipes!");
+    return;
+  }
+
+  //Import and embed store products
   const updateConfirms = [];
-  // updateConfirms['bilka'] = await sqlHandler.ImportSallingData("bilkatogo");
-  // updateConfirms['føtex'] = await sqlHandler.ImportSallingData("foetexplus");
-  // updateConfirms['netto'] = await sqlHandler.ImportSallingData("nettoplus");
-  // await sqlHandler.CreateIngredientMatches();
-  await sqlHandler.GetCheapestPriceForAllRecipe();
-})();
+  updateConfirms['bilka'] = await sqlHandler.ImportSallingData("bilkatogo");
+  updateConfirms['føtex'] = await sqlHandler.ImportSallingData("foetexplus");
+  updateConfirms['netto'] = await sqlHandler.ImportSallingData("nettoplus");
+  Object.entries(updateConfirms).forEach(e => {
+    if (!e[1]) console.warn(`failed to Import from ${e[0]}`);
+  })
+
+  //Match all store products to ingredients, with a match score to determine certainty
+  await sqlHandler.CreateIngredientMatches();
+  
+  // await sqlHandler.GetCheapestPriceForAllRecipe();
+  res();
+});
 
 /*
 const path = require('path');

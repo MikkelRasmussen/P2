@@ -233,9 +233,15 @@ app.listen(PORT, () => {
 const sql = require('./SQLHandler/SQLHandler.js');
 const sqlHandler = new sql();
 (async () => {
+  console.log(process.cwd());
   await sqlHandler.Connect("localhost", "postgres", "Post2025", 5432);
-  await sqlHandler.ImportSallingData();
   // await sqlHandler.ImportRecipes();
+  const updateConfirms = [];
+  // updateConfirms['bilka'] = await sqlHandler.ImportSallingData("bilkatogo");
+  // updateConfirms['føtex'] = await sqlHandler.ImportSallingData("foetexplus");
+  // updateConfirms['netto'] = await sqlHandler.ImportSallingData("nettoplus");
+  // await sqlHandler.CreateIngredientMatches();
+  await sqlHandler.GetCheapestPriceForAllRecipe();
 })();
 
 /*

@@ -1,8 +1,8 @@
 import { useState, useCallback } from "react";
-import { recipes as allRecipes } from "./Recipes Swiper/data/recipes";
-import RecipeCard from "./Recipes Swiper/RecipeCard";
-import RecipeModal from "./Recipes Swiper/RecipeModal";
-import SavedList from "./Recipes Swiper/SavedList";
+import { recipes as allRecipes } from "./Components/data/recipes";
+import RecipeCard from "./Components/RecipeCard";
+import RecipeModal from "./Components/RecipeModal";
+import SavedList from "./Components/SavedList";
 
 
 

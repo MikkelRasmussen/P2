@@ -18,14 +18,11 @@ export default function Header() {
             <div className="flex justify-between items-center px-8 h-20 max-w-7xl mx-auto">
                 <div className="text-2xl font-bold text-green-800 dark:text-green-300 tracking-tighter">Mealplanner</div>
                 <nav className="hidden md:flex items-center space-x-8 font-['Plus_Jakarta_Sans'] font-semibold tracking-tight">
-                    <Link to="/" className={linkClasses('/')}>Recipes</Link>
-                    <Link to="/shopping-list" className={linkClasses('/shopping-list')}>Shopping List</Link>
+                    <Link to="/" className={linkClasses('/')}>Opskrifter</Link>
+                    <Link to="/week" className={linkClasses('/week')}>Ugenlig madplan</Link>
+                    <Link to="/shopping-list" className={linkClasses('/shopping-list')}>Indkøbsliste</Link>
                 </nav>
-                <div className="flex items-center space-x-4">
-                    <button className="p-2 hover:bg-green-50 dark:hover:bg-green-900/20 rounded-full transition-all scale-95 active:opacity-80">
-                        <span className="material-symbols-outlined text-green-700 dark:text-green-400" data-icon="account_circle">account_circle</span>
-                    </button>
-                </div>
+
             </div>
         </header>
     )

@@ -4,10 +4,10 @@ import reactLogo from './assets/react.svg'
 import viteLogo from './assets/vite.svg'
 import heroImg from './assets/hero.png'
 import './App.css'
-import Swiper from "./pages/swiper/swiper.jsx"
-import RecipePage from "./pages/swiper/RecipePage.jsx"
+import RecipePage from "./pages/RecipesSwiper/RecipePage.jsx"
 import Header from "./components/Header.jsx"
 import Shoppinglist from "./pages/Shoppinglist.jsx"
+import WeekPage from "./pages/WeekPage.jsx"
 
 
 function App() {
@@ -20,6 +20,7 @@ function App() {
         <Routes>
           <Route path="/" element={<RecipePage />} />
           <Route path="/shopping-list" element={<Shoppinglist />} />
+          <Route path="/week" element={<WeekPage />} />
         </Routes>
       </div>
     </>

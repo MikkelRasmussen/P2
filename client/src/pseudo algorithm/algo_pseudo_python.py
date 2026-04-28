@@ -130,11 +130,117 @@ def fetch_data():
         sys.exit(0)
         
 
+def calculate_buy_price(recipe, store):
+    volume_units = ["ml", "l", "dl", "cup", "cups", "milliliters"]
+    weight_units = ["mg", "g", "kg", "pound", "pounds", "lb", "lbs", "oz"]
+    misc_units = ["tbs", "tablespoon", "bag", "handful", "tsp", "teaspoon", "bottle", "bottles"]
+    abstract_units = ["slices", "sliced", "cans", "can"]
+    ignored_units = ["as required", "beaten", "boiled", "boneless"]
+    # 54 <--- Process
+    
+    recipe_quantity = recipe.get("quantity")
+    recipe_unit = recipe.get("unit")
+    store_price = store.get("price")
+    store_unit = store.get("unit")
 
+    resulting_price = 999999
+
+    # Direct match
+    if recipe_unit.lower() == store_unit.lower():
+        resulting_price = store_price * recipe_quantity
+
+    # Volume unit
+    elif recipe_unit.lower() in volume_units:
+        pass
+
+    # Weight unit
+    elif recipe_unit.lower() in weight_units:
+        pass
+
+    # Other units
+    elif recipe_unit.lower() in misc_units:
+        pass
+
+    # Abstract/hard units to parse
+    elif recipe_unit.lower() in abstract_units:
+        pass
+
+    # Abstract/hard units to parse
+    elif recipe_unit.lower() in ignored_units:
+        pass
+
+    return resulting_price
 
 
 # Helper function to determine the cheapest price from the cheapest store
-def find_cheapest_price(ingredient: str, price_data: dict, memory_scores: dict):
+def find_cheapest_price(ingredient: str, quantity, unit, price_data: dict, memory_scores: dict):
+
+    try:
+        bilka = price_data.get("bilka")
+        netto = price_data.get("netto")
+        føtex = price_data.get("føtex")
+        rema = price_data.get("rema")
+    except:
+        return None, None, False
+    
+    recipe_quantity = {"quantity": quantity, "unit": unit}
+
+    # Finding cheapest price from each store
+    price_bilka = 999999
+    for i in range(len(bilka)):
+        if ingredient in bilka[i]["description"]:
+            if bilka[i]["price"] < price_bilka:
+                price_bilka = bilka[i]["price"]
+
+                unit_price_bilka = bilka[i]["unitPrice"]
+                unit_bilka = bilka[i]["priceUnit"]
+
+                store_quantity = {"price": unit_price_bilka, "unit": unit_bilka}
+
+                price_to_buy_bilka = calculate_buy_price(recipe_quantity, store_quantity)
+
+    price_netto = 999999
+    for i in range(len(netto)):
+        if ingredient in netto[i]["description"]:
+            if netto[i]["price"] < price_netto:
+                price_netto = netto[i]["price"]
+
+                unit_price_netto = netto[i]["unitPrice"]
+                unit_netto = netto[i]["priceUnit"]
+
+                store_quantity = {"price": unit_price_netto, "unit": unit_netto}
+
+                price_to_buy_netto = calculate_buy_price(recipe_quantity, store_quantity)
+
+    price_føtex = 999999
+    for i in range(len(føtex)):
+        if ingredient in føtex[i]["description"]:
+            if føtex[i]["price"] < price_føtex:
+                price_føtex = føtex[i]["price"]
+
+                unit_price_føtex = føtex[i]["unitPrice"]
+                unit_føtex = føtex[i]["priceUnit"]
+
+                store_quantity = {"price": unit_price_føtex, "unit": unit_føtex}
+
+                price_to_buy_føtex = calculate_buy_price(recipe_quantity, store_quantity)
+
+    price_rema = 999999
+    for department in rema["departments"]:
+        for category in department["categories"]:
+            for item in category["items"]:
+                if ingredient.lower() in item["name"].lower():
+                    if item["pricing"]["price"] < price_rema:
+                        price_rema = item["pricing"]["price"]
+
+                        unit_price_rema = item["pricing"]["price_per_kilogram"]
+                        unit_rema = "kg"
+
+                        store_quantity = {"price": unit_price_rema, "unit": unit_rema}
+
+                        price_to_buy_rema = calculate_buy_price(recipe_quantity, store_quantity)
+
+    # Comparing the cheapest price from each store with each other
 
     try:
         if ingredient in memory_scores:
@@ -144,51 +250,22 @@ def find_cheapest_price(ingredient: str, price_data: dict, memory_scores: dict):
     except:
         score = 1
 
-    try:
-        bilka = price_data.get("bilka")
-        netto = price_data.get("netto")
-        føtex = price_data.get("føtex")
-        rema = price_data.get("rema")
-    except:
-        return None, None, False
-
-    # Finding cheapest price from each store
-    price_bilka = 999999
-    for i in range(len(bilka)):
-        if ingredient in bilka[i]["description"]:
-            if bilka[i]["price"] < price_bilka:
-                price_bilka = bilka[i]["price"] * score
-
-    price_netto = 999999
-    for i in range(len(netto)):
-        if ingredient in netto[i]["description"]:
-            if netto[i]["price"] < price_netto:
-                price_netto = netto[i]["price"] * score
-
-    price_føtex = 999999
-    for i in range(len(føtex)):
-        if ingredient in føtex[i]["description"]:
-            if føtex[i]["price"] < price_føtex:
-                price_føtex = føtex[i]["price"] * score
-
-    price_rema = 999999
-    for department in rema["departments"]:
-        for category in department["categories"]:
-            for item in category["items"]:
-                if ingredient.lower() in item["name"].lower():
-                    if item["pricing"]["price"] < price_rema:
-                        price_rema = item["pricing"]["price"] * score
-
-    # Comparing the cheapest price from each store with each other
     scores = {
-        "bilka": price_bilka,
-        "netto": price_netto,
-        "føtex": price_føtex,
-        "rema": price_rema
+        "bilka": price_to_buy_bilka * score,
+        "netto": price_to_buy_netto * score,
+        "føtex": price_to_buy_føtex * score,
+        "rema": price_to_buy_rema * score
+    }
+
+    prices = {
+        "bilka": price_to_buy_bilka,
+        "netto": price_to_buy_netto,
+        "føtex": price_to_buy_føtex,
+        "rema": price_to_buy_rema    
     }
 
     store = min(scores, key=scores.get)
-    cheapest = scores[store]
+    cheapest = prices[store]
 
     if cheapest == 999999:
         return None, None, False
@@ -212,7 +289,7 @@ def run_algorithm(amount: int = 1, # Amount of recipes needed
     ingredients_mapping = data.get("ingredients_mapping")
     price_data = data.get("prices")
 
-    basic_ingredients = {
+    basic_ingredients = [
         "water", "boiling water", "cold water",
         "salt", "sea salt", "kosher salt",
         "pepper", "black pepper", "peppercorns", "whole black peppercorns",
@@ -235,7 +312,7 @@ def run_algorithm(amount: int = 1, # Amount of recipes needed
         "chicken stock", "chicken stock cube", "chicken bouillon powder",
         "beef stock", "beef stock cubes", "beef stock concentrate",
         "vegetable stock", "vegetable stock cube", "bouillon cubes"
-    }
+    ]
     
     # ====== Algorithm start ======
     results = {}
@@ -271,18 +348,50 @@ def run_algorithm(amount: int = 1, # Amount of recipes needed
                                 "measure": measure or ""
                             })
 
+
+                def parse_quantity(quantity):
+                    quantity = quantity.strip().lower()
+
+                    number_part = ""
+                    unit_part = ""
+
+                    for char in quantity:
+                        if char.isdigit() or char in [",", "."]:
+                            number_part += char
+                        else:
+                            unit_part += char
+
+                    amount = float(number_part.replace(",", "."))
+                    unit = unit_part.strip()
+
+                    return amount, unit
+
+
                 recipe_prices = {}
                 total_price = 0
                 is_valued = False
+
                 for ingredient_data in ingredients_to_value:
                     ingredient = ingredient_data["name"]
+                    measurement = ingredient_data["measure"]
+
+                    try:
+                        quantity, unit = parse_quantity(measurement)
+                    except:
+                        continue
+
 
                     # Find the cheapest price in the cheapest store
                     try:
                         ingredient_DK = ingredients_mapping[ingredient]
                     except:
                         continue
-                    cheapest_price, store, is_valued = find_cheapest_price(ingredient_DK, price_data, memory_scores)
+                    try:
+                        cheapest_price, store, is_valued = find_cheapest_price(ingredient_DK, quantity, unit, price_data, memory_scores)
+                    except Exception as e:
+                        print(f"Error finding cheapest price: {e}")
+                        continue
+
                     if not is_valued:
                         break
                     if cheapest_price is None or store is None:
@@ -290,7 +399,7 @@ def run_algorithm(amount: int = 1, # Amount of recipes needed
 
                     # Collect the data in a dict and accumulate the total cost
                     recipe_prices[ingredient] = {
-                        "measure": ingredient_data["measure"],
+                        "measure": measurement,
                         "store": store,
                         "price": cheapest_price
                     }

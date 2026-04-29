@@ -11,6 +11,7 @@ from colorama import Style, Fore, init
 import sys
 import json
 import traceback
+import math
 init()
 
 
@@ -130,46 +131,200 @@ def fetch_data():
         sys.exit(0)
         
 
-def calculate_buy_price(recipe, store):
-    volume_units = ["ml", "l", "dl", "cup", "cups", "milliliters"]
-    weight_units = ["mg", "g", "kg", "pound", "pounds", "lb", "lbs", "oz"]
-    misc_units = ["tbs", "tablespoon", "bag", "handful", "tsp", "teaspoon", "bottle", "bottles"]
-    abstract_units = ["slices", "sliced", "cans", "can"]
-    ignored_units = ["as required", "beaten", "boiled", "boneless"]
-    # 54 <--- Process
+def calculate_buy_price(recipe, store, current_item):
+    volume_units = ["ml", "l", "dl", "cl", "cup", "cups", "milliliters", "milliliter", "liters", "liter", "litres", "litre", "tbs", "tbls", "tblsp", "tbsp", "tablespoon", "tablespoons", "tsp", "teaspoon", "teaspoons"]
+    weight_units = ["mg", "g", "gram", "grams", "kg", "kilogram", "kilograms", "pound", "pounds", "lb", "lbs", "oz", "ounce", "ounces"]
+    misc_units = ["bag", "bags", "handful", "handfuls", "handfull", "handfulls", "bottle", "bottles", "jar", "jars", "pot", "pots", "packet", "packets", "pack", "package", "packages", "shot"]
+    abstract_units = ["slices", "slice", "sliced", "cans", "can", "tin", "piece", "pieces", "part", "parts", "bunch", "bunches", "clove", "cloves", "head", "heads", "leaf", "leaves", "sprig", "sprigs", "stalk", "stalks", "stick", "sticks", "bulb", "bulbs", "knob", "knobs", "pod", "pods", "large", "medium", "small", "whole", "stk"]
+    ignored_units = ["as required", "beaten", "boiled", "boneless", "chopped", "diced", "finely chopped", "finely diced", "finely sliced", "grated", "halved", "mashed", "minced", "quartered", "shredded", "skinned", "to serve", "to taste"]
     
+    # Getting the values
     recipe_quantity = recipe.get("quantity")
-    recipe_unit = recipe.get("unit")
+    recipe_unit = str(recipe.get("unit") or "").strip().lower()
     store_price = store.get("price")
-    store_unit = store.get("unit")
+    store_unit = str(store.get("unit") or "").strip().lower()
 
+    # Setting defaults
     resulting_price = 999999
+    amount_to_buy = 0
+    store_quantity = None
+    store_quantity_unit = ""
+    package_price = store_price
 
-    # Direct match
-    if recipe_unit.lower() == store_unit.lower():
-        resulting_price = store_price * recipe_quantity
+    try:
+        recipe_quantity = float(recipe_quantity)
+        store_price = float(store_price)
+    except:
+        return resulting_price, amount_to_buy
 
-    # Volume unit
-    elif recipe_unit.lower() in volume_units:
-        pass
+    # Normalising the units
+    if recipe_unit in ["gr", "gram", "grams"]:
+        recipe_unit = "g"
+    elif recipe_unit in ["kilogram", "kilograms"]:
+        recipe_unit = "kg"
+    elif recipe_unit in ["milliliter", "milliliters"]:
+        recipe_unit = "ml"
+    elif recipe_unit in ["liter", "liters", "litre", "litres"]:
+        recipe_unit = "l"
+    elif recipe_unit in ["tablespoon", "tablespoons", "tbsp", "tblsp", "tbls"]:
+        recipe_unit = "tbs"
+    elif recipe_unit in ["teaspoon", "teaspoons"]:
+        recipe_unit = "tsp"
+    elif recipe_unit == "":
+        recipe_unit = "stk"
+    elif recipe_unit in misc_units or recipe_unit in abstract_units or recipe_unit in ignored_units:
+        recipe_unit = "stk"
 
-    # Weight unit
-    elif recipe_unit.lower() in weight_units:
-        pass
+    if store_unit in ["gr", "gram", "grams"]:
+        store_unit = "g"
+    elif store_unit in ["kilogram", "kilograms"]:
+        store_unit = "kg"
+    elif store_unit in ["milliliter", "milliliters"]:
+        store_unit = "ml"
+    elif store_unit in ["liter", "liters", "litre", "litres"]:
+        store_unit = "l"
+    elif store_unit in ["tablespoon", "tablespoons", "tbsp", "tblsp", "tbls"]:
+        store_unit = "tbs"
+    elif store_unit in ["teaspoon", "teaspoons"]:
+        store_unit = "tsp"
+    elif store_unit == "":
+        store_unit = "stk"
 
-    # Other units
-    elif recipe_unit.lower() in misc_units:
-        pass
+    # Reading the product
+    if current_item is not None:
+        if "pricing" in current_item:
+            try:
+                package_price = float(current_item["pricing"]["price"])
+            except:
+                package_price = store_price
 
-    # Abstract/hard units to parse
-    elif recipe_unit.lower() in abstract_units:
-        pass
+            if current_item["pricing"].get("consumption_quantity") is not None and current_item["pricing"].get("consumption_unit") is not None:
+                try:
+                    store_quantity = float(current_item["pricing"]["consumption_quantity"])
+                    store_quantity_unit = str(current_item["pricing"]["consumption_unit"]).strip().lower()
+                except:
+                    pass
 
-    # Abstract/hard units to parse
-    elif recipe_unit.lower() in ignored_units:
-        pass
+            if store_quantity is None:
+                text = str(current_item.get("underline") or "").lower()
+                text = text.replace(".", "")
+                text = text.replace("/", " ")
+                parts = text.split()
 
-    return resulting_price
+                for n in range(len(parts) - 1):
+                    try:
+                        possible_quantity = float(parts[n].replace(",", "."))
+                    except:
+                        continue
+
+                    possible_unit = parts[n + 1]
+                    if possible_unit == "gr":
+                        possible_unit = "g"
+
+                    if possible_unit in ["g", "kg", "mg", "ml", "dl", "cl", "l", "stk"]:
+                        store_quantity = possible_quantity
+                        store_quantity_unit = possible_unit
+                        break
+
+            if store_quantity is None and package_price > 0 and store_price > 0:
+                store_quantity = package_price / store_price
+                store_quantity_unit = store_unit
+        else:
+            try:
+                package_price = float(current_item["price"])
+            except:
+                package_price = store_price
+
+            try:
+                store_quantity = float(current_item["contents"])
+                store_quantity_unit = str(current_item["contentsUnit"]).strip().lower()
+            except:
+                pass
+
+    # Normalising the package unit
+    if store_quantity_unit in ["gr", "gram", "grams"]:
+        store_quantity_unit = "g"
+    if store_quantity_unit in ["kilogram", "kilograms"]:
+        store_quantity_unit = "kg"
+    if store_quantity_unit in ["milliliter", "milliliters"]:
+        store_quantity_unit = "ml"
+    if store_quantity_unit in ["liter", "liters", "litre", "litres"]:
+        store_quantity_unit = "l"
+    if store_quantity_unit in misc_units or store_quantity_unit in abstract_units or store_quantity_unit in ignored_units or store_quantity_unit == "":
+        store_quantity_unit = "stk"
+
+    # Conversion values
+    weight_values = {
+        "mg": 0.001,
+        "g": 1,
+        "kg": 1000,
+        "lb": 453.592,
+        "lbs": 453.592,
+        "pound": 453.592,
+        "pounds": 453.592,
+        "oz": 28.3495,
+        "ounce": 28.3495,
+        "ounces": 28.3495
+    }
+
+    volume_values = {
+        "ml": 1,
+        "cl": 10,
+        "dl": 100,
+        "l": 1000,
+        "cup": 250,
+        "cups": 250,
+        "tbs": 15,
+        "tsp": 5
+    }
+
+    # Calculating from package size
+    if store_quantity is not None and store_quantity > 0:
+        if recipe_unit == store_quantity_unit:
+            amount_to_buy = math.ceil(recipe_quantity / store_quantity)
+
+        elif recipe_unit in weight_units and store_quantity_unit in weight_values:
+            recipe_in_g = recipe_quantity * weight_values[recipe_unit]
+            store_in_g = store_quantity * weight_values[store_quantity_unit]
+            amount_to_buy = math.ceil(recipe_in_g / store_in_g)
+
+        elif recipe_unit in volume_units and store_quantity_unit in volume_values:
+            recipe_in_ml = recipe_quantity * volume_values[recipe_unit]
+            store_in_ml = store_quantity * volume_values[store_quantity_unit]
+            amount_to_buy = math.ceil(recipe_in_ml / store_in_ml)
+
+        elif recipe_unit == "stk" and store_quantity_unit == "stk":
+            amount_to_buy = math.ceil(recipe_quantity / store_quantity)
+
+        if amount_to_buy > 0:
+            resulting_price = package_price * amount_to_buy
+
+    # Fallback calculation
+    if resulting_price == 999999:
+        if recipe_unit == store_unit:
+            resulting_price = store_price * recipe_quantity
+            amount_to_buy = math.ceil(recipe_quantity)
+
+        elif recipe_unit in weight_units and store_unit in weight_values:
+            recipe_in_g = recipe_quantity * weight_values[recipe_unit]
+            store_in_g = weight_values[store_unit]
+            resulting_price = store_price * (recipe_in_g / store_in_g)
+            amount_to_buy = 1
+
+        elif recipe_unit in volume_units and store_unit in volume_values:
+            recipe_in_ml = recipe_quantity * volume_values[recipe_unit]
+            store_in_ml = volume_values[store_unit]
+            resulting_price = store_price * (recipe_in_ml / store_in_ml)
+            amount_to_buy = 1
+
+        elif recipe_unit == "stk" and store_unit == "stk":
+            resulting_price = store_price * recipe_quantity
+            amount_to_buy = math.ceil(recipe_quantity)
+
+    # Returning the result
+    resulting_price = round(resulting_price, 2) if resulting_price != 999999 else resulting_price
+
+    return resulting_price, amount_to_buy
 
 
 # Helper function to determine the cheapest price from the cheapest store
@@ -181,12 +336,17 @@ def find_cheapest_price(ingredient: str, quantity, unit, price_data: dict, memor
         føtex = price_data.get("føtex")
         rema = price_data.get("rema")
     except:
-        return None, None, False
+        return None, None, None, False
     
     recipe_quantity = {"quantity": quantity, "unit": unit}
 
     # Finding cheapest price from each store
     price_bilka = 999999
+    price_to_buy_bilka = 999999
+    amount_to_buy_bilka = 0
+    product_name_bilka = None
+    unit_price_bilka = None
+    unit_bilka = None
     for i in range(len(bilka)):
         if ingredient in bilka[i]["description"]:
             if bilka[i]["price"] < price_bilka:
@@ -197,9 +357,15 @@ def find_cheapest_price(ingredient: str, quantity, unit, price_data: dict, memor
 
                 store_quantity = {"price": unit_price_bilka, "unit": unit_bilka}
 
-                price_to_buy_bilka = calculate_buy_price(recipe_quantity, store_quantity)
+                price_to_buy_bilka, amount_to_buy_bilka = calculate_buy_price(recipe_quantity, store_quantity, bilka[i])
+                product_name_bilka = bilka[i]["description"]
 
     price_netto = 999999
+    price_to_buy_netto = 999999
+    amount_to_buy_netto = 0
+    product_name_netto = None
+    unit_price_netto = None
+    unit_netto = None
     for i in range(len(netto)):
         if ingredient in netto[i]["description"]:
             if netto[i]["price"] < price_netto:
@@ -210,9 +376,15 @@ def find_cheapest_price(ingredient: str, quantity, unit, price_data: dict, memor
 
                 store_quantity = {"price": unit_price_netto, "unit": unit_netto}
 
-                price_to_buy_netto = calculate_buy_price(recipe_quantity, store_quantity)
+                price_to_buy_netto, amount_to_buy_netto = calculate_buy_price(recipe_quantity, store_quantity, netto[i])
+                product_name_netto = netto[i]["description"]
 
     price_føtex = 999999
+    price_to_buy_føtex = 999999
+    amount_to_buy_føtex = 0
+    product_name_føtex = None
+    unit_price_føtex = None
+    unit_føtex = None
     for i in range(len(føtex)):
         if ingredient in føtex[i]["description"]:
             if føtex[i]["price"] < price_føtex:
@@ -223,9 +395,15 @@ def find_cheapest_price(ingredient: str, quantity, unit, price_data: dict, memor
 
                 store_quantity = {"price": unit_price_føtex, "unit": unit_føtex}
 
-                price_to_buy_føtex = calculate_buy_price(recipe_quantity, store_quantity)
+                price_to_buy_føtex, amount_to_buy_føtex = calculate_buy_price(recipe_quantity, store_quantity, føtex[i])
+                product_name_føtex = føtex[i]["description"]
 
     price_rema = 999999
+    price_to_buy_rema = 999999
+    amount_to_buy_rema = 0
+    product_name_rema = None
+    unit_price_rema = None
+    unit_rema = None
     for department in rema["departments"]:
         for category in department["categories"]:
             for item in category["items"]:
@@ -238,7 +416,8 @@ def find_cheapest_price(ingredient: str, quantity, unit, price_data: dict, memor
 
                         store_quantity = {"price": unit_price_rema, "unit": unit_rema}
 
-                        price_to_buy_rema = calculate_buy_price(recipe_quantity, store_quantity)
+                        price_to_buy_rema, amount_to_buy_rema = calculate_buy_price(recipe_quantity, store_quantity, item)
+                        product_name_rema = item["name"]
 
     # Comparing the cheapest price from each store with each other
 
@@ -264,13 +443,44 @@ def find_cheapest_price(ingredient: str, quantity, unit, price_data: dict, memor
         "rema": price_to_buy_rema    
     }
 
+    stores_data = {
+        "bilka": {
+            "price": price_to_buy_bilka,
+            "amount_to_buy": amount_to_buy_bilka,
+            "product_name": product_name_bilka,
+            "price_per_unit": unit_price_bilka,
+            "unit": unit_bilka
+        },
+        "netto": {
+            "price": price_to_buy_netto,
+            "amount_to_buy": amount_to_buy_netto,
+            "product_name": product_name_netto,
+            "price_per_unit": unit_price_netto,
+            "unit": unit_netto
+        },
+        "føtex": {
+            "price": price_to_buy_føtex,
+            "amount_to_buy": amount_to_buy_føtex,
+            "product_name": product_name_føtex,
+            "price_per_unit": unit_price_føtex,
+            "unit": unit_føtex
+        },
+        "rema": {
+            "price": price_to_buy_rema,
+            "amount_to_buy": amount_to_buy_rema,
+            "product_name": product_name_rema,
+            "price_per_unit": unit_price_rema,
+            "unit": unit_rema
+        }
+    }
+
     store = min(scores, key=scores.get)
-    cheapest = prices[store]
+    cheapest_price = prices[store]
 
-    if cheapest == 999999:
-        return None, None, False
+    if cheapest_price == 999999:
+        return None, None, None, False
 
-    return cheapest, store, True
+    return cheapest_price, store, stores_data, True
 
 
 
@@ -369,7 +579,7 @@ def run_algorithm(amount: int = 1, # Amount of recipes needed
 
                 recipe_prices = {}
                 total_price = 0
-                is_valued = False
+                success_bool = True
 
                 for ingredient_data in ingredients_to_value:
                     ingredient = ingredient_data["name"]
@@ -387,25 +597,28 @@ def run_algorithm(amount: int = 1, # Amount of recipes needed
                     except:
                         continue
                     try:
-                        cheapest_price, store, is_valued = find_cheapest_price(ingredient_DK, quantity, unit, price_data, memory_scores)
+                        cheapest_price, store, stores_data, found = find_cheapest_price(ingredient_DK, quantity, unit, price_data, memory_scores)
                     except Exception as e:
                         print(f"Error finding cheapest price: {e}")
                         continue
 
-                    if not is_valued:
+                    # Fail safe
+                    if not found or cheapest_price is None or store is None or stores_data is None:
+                        success_bool = False
                         break
-                    if cheapest_price is None or store is None:
-                        continue
 
                     # Collect the data in a dict and accumulate the total cost
                     recipe_prices[ingredient] = {
                         "measure": measurement,
                         "store": store,
+                        "stores_data": stores_data,
+                        "product_name": stores_data[store]["product_name"],
+                        "amount_to_buy": stores_data[store]["amount_to_buy"],
                         "price": cheapest_price
                     }
                     total_price += cheapest_price
 
-                if not is_valued:
+                if not success_bool:
                     continue
                 
                 # Check if the recipe price is within range of budget
@@ -437,11 +650,66 @@ def print_results(results):
         for ingredient, ingredient_data in data.get("stores", {}).items():
             measure = ingredient_data.get("measure", "").strip()
             store = ingredient_data.get("store")
-            price_text = f"{ingredient_data.get('price', 0)} DKK"
+            product_name = ingredient_data.get("product_name")
+            amount_to_buy = ingredient_data.get("amount_to_buy", 0)
+            ingredient_price = ingredient_data.get("price", 0)
+            stores_data = ingredient_data.get("stores_data", {})
+            chosen_store_data = stores_data.get(store, {})
+            unit_price = chosen_store_data.get("price_per_unit")
+            unit = chosen_store_data.get("unit")
+            price_per_buy = 0
+            if amount_to_buy > 0:
+                price_per_buy = ingredient_price / amount_to_buy
+
+            ranking = []
+            for store_name, store_data in stores_data.items():
+                store_price = store_data.get("price", 999999)
+                if store_price != 999999:
+                    rank_amount_to_buy = store_data.get("amount_to_buy", 0)
+                    rank_price_per_buy = 0
+                    if rank_amount_to_buy > 0:
+                        rank_price_per_buy = store_price / rank_amount_to_buy
+                    ranking.append({
+                        "store": store_name,
+                        "price": store_price,
+                        "amount_to_buy": rank_amount_to_buy,
+                        "product_name": store_data.get("product_name"),
+                        "price_per_unit": store_data.get("price_per_unit"),
+                        "unit": store_data.get("unit"),
+                        "price_per_buy": rank_price_per_buy
+                    })
+
+            ranking.sort(key=lambda x: x["price"])
+
             if measure:
-                print(f"{measure} {ingredient} ({price_text} - {store})")
+                print(f"{measure} {ingredient}")
             else:
-                print(f"{ingredient} ({price_text} - {store})")
+                print(f"{ingredient}")
+
+            print(f"  store: {store}")
+            if product_name:
+                print(f"  product: {product_name}")
+            print(f"  amount: {amount_to_buy}")
+            print(f"  price: {ingredient_price:.2f} DKK")
+            if unit_price is not None and unit:
+                print(f"  price per unit: {unit_price:.2f} DKK / {unit}")
+            if amount_to_buy > 0:
+                print(f"  price per buy: {price_per_buy:.2f} DKK")
+
+            if len(ranking) > 0:
+                print("  rank:")
+                rank_number = 1
+                for rank_data in ranking:
+                    rank_line = f"    {rank_number}. {rank_data['store']} - {rank_data['price']:.2f} DKK - buy {rank_data['amount_to_buy']}"
+                    if rank_data["price_per_unit"] is not None and rank_data["unit"]:
+                        rank_line += f" - {rank_data['price_per_unit']:.2f} DKK/{rank_data['unit']}"
+                    if rank_data["amount_to_buy"] > 0:
+                        rank_line += f" - {rank_data['price_per_buy']:.2f} DKK each"
+                    if rank_data["product_name"]:
+                        rank_line += f" - {rank_data['product_name']}"
+                    print(rank_line)
+                    rank_number += 1
+            print("")
         iteration += 1
         if not iteration == total_recipes+1:
             print("")
@@ -450,7 +718,11 @@ def print_results(results):
 
 # Main function
 def main():
-    budget_min, budget_max, recipes_amount = get_inputs()
+    try:
+        budget_min, budget_max, recipes_amount = get_inputs()
+    except Exception as e:
+        print(f"\nError with inputs: \n\n{e}\n")
+    
     memory_scores = {}
 
     try:

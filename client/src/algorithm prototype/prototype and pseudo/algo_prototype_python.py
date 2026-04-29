@@ -1,9 +1,10 @@
 """
 I have made this Python code as a testing program.
-The Pseudo code can be found in algo_pseudo.txt.
+The Pseudo code can be found in algo_pseudo.txt inside this folder.
 
 TODO:
-1. Implement measurements and quantities of ingredients using mapping
+1. Make the logic behind finding the correct ingredient names more precise
+2. Use SQL instead of .json files
 """
 
 
@@ -485,8 +486,7 @@ def find_cheapest_price(ingredient: str, quantity, unit, price_data: dict, memor
 
 
 
-# Main function to run the algorithm
-
+# -------->  The algorithm iteslf <--------
 def run_algorithm(amount: int = 1, # Amount of recipes needed
                   budget_min: float = 0, # Min price per recipe
                   budget_max: float = 9999, # Max price per recipe
@@ -499,6 +499,7 @@ def run_algorithm(amount: int = 1, # Amount of recipes needed
     ingredients_mapping = data.get("ingredients_mapping")
     price_data = data.get("prices")
 
+    # Ingredients to skip
     basic_ingredients = [
         "water", "boiling water", "cold water",
         "salt", "sea salt", "kosher salt",
@@ -524,7 +525,7 @@ def run_algorithm(amount: int = 1, # Amount of recipes needed
         "vegetable stock", "vegetable stock cube", "bouillon cubes"
     ]
     
-    # ====== Algorithm start ======
+    # ====== ALGORITHM START ======
     results = {}
     for i in range(amount):
         candidates = {}
@@ -635,6 +636,7 @@ def run_algorithm(amount: int = 1, # Amount of recipes needed
                 "price": cheapest_candidate_price,
                 "stores": cheapest_candidate_stores
             }
+    # ====== ALGORITHM END ======
 
     return results
         
@@ -679,7 +681,13 @@ def print_results(results):
                         "price_per_buy": rank_price_per_buy
                     })
 
-            ranking.sort(key=lambda x: x["price"])
+            # Sorting to find the cheapest store
+            for i in range(len(ranking)):
+                for j in range(i + 1, len(ranking)):
+                    if ranking[j]["price"] < ranking[i]["price"]:
+                        temp = ranking[i]
+                        ranking[i] = ranking[j]
+                        ranking[j] = temp
 
             if measure:
                 print(f"{measure} {ingredient}")

@@ -1,3 +1,6 @@
+# This is a script to extract all the unique different units in strMeasure from all ingredients in recipe.json database
+# Results will be in measurements.txt
+
 import json
 from pathlib import Path
 

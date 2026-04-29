@@ -17,15 +17,14 @@ init()
 
 
 # File paths
-RECIPES_FILE_PATH = r"client\src\pseudo algorithm\data\recipes.json" # File path to the database with recipes (i dont know how to handle SQL databases here, so keep that in mind)
+RECIPES_FILE_PATH = r"client\src\algorithm prototype\data\recipes.json" # File path to the database with recipes (i dont know how to handle SQL databases here, so keep that in mind)
 
-INGREDIENTS_MAPPING_FILE_PATH = r"client\src\pseudo algorithm\data\mapping_ingredienser.json" # File path to the mapping of ingredients
-MEASUREMENTS_MAPPING_FILE_PATH = r"client\src\pseudo algorithm\data\mapping_måling.json" # File path to the mapping of measurents
+INGREDIENTS_MAPPING_FILE_PATH = r"client\src\algorithm prototype\data\mapping_ingredienser.json" # File path to the mapping of ingredients
 
-BILKA_PRICES_FILE_PATH = r"client\src\pseudo algorithm\data\bilka_prices.json" # File path to the database of Bilka prices
-NETTO_PRICES_FILE_PATH = r"client\src\pseudo algorithm\data\netto_prices.json" # File path to the database of Netto prices
-FØTEX_PRICES_FILE_PATH = r"client\src\pseudo algorithm\data\føtex_prices.json" # File path to the database of Føtex prices
-REMA_PRICES_FILE_PATH = r"client\src\pseudo algorithm\data\rema_prices.json" # File path to the database of Rema1000 prices
+BILKA_PRICES_FILE_PATH = r"client\src\algorithm prototype\data\bilka_prices.json" # File path to the database of Bilka prices
+NETTO_PRICES_FILE_PATH = r"client\src\algorithm prototype\data\netto_prices.json" # File path to the database of Netto prices
+FØTEX_PRICES_FILE_PATH = r"client\src\algorithm prototype\data\føtex_prices.json" # File path to the database of Føtex prices
+REMA_PRICES_FILE_PATH = r"client\src\algorithm prototype\data\rema_prices.json" # File path to the database of Rema1000 prices
 
 
 
@@ -88,26 +87,17 @@ def get_inputs():
 def fetch_data():
 
     # Internal helper function to load a json file
-    def load_json_file(path, default=None, required=True):
+    def load_json_file(path):
         try:
             with open(path, "r", encoding="utf-8") as f:
                 return json.load(f)
         except FileNotFoundError:
-            if required:
-                raise
-            return default
-        except json.JSONDecodeError as e:
-            raise ValueError(f"Invalid JSON in {path}: {e}")
+            raise
         
     # Loading the data files
     try:
         recipes = load_json_file(RECIPES_FILE_PATH)
         ingredients_mapping = load_json_file(INGREDIENTS_MAPPING_FILE_PATH)
-        measurements_mapping = load_json_file(
-            MEASUREMENTS_MAPPING_FILE_PATH,
-            default=None,
-            required=False
-        )
 
         bilka_prices = load_json_file(BILKA_PRICES_FILE_PATH)
         netto_prices = load_json_file(NETTO_PRICES_FILE_PATH)
@@ -117,7 +107,6 @@ def fetch_data():
         return {
             "recipes": recipes,
             "ingredients_mapping": ingredients_mapping,
-            "measurements_mapping": measurements_mapping,
             "prices": {
                 "bilka": bilka_prices,
                 "netto": netto_prices,
@@ -592,11 +581,12 @@ def run_algorithm(amount: int = 1, # Amount of recipes needed
                         continue
 
 
-                    # Find the cheapest price in the cheapest store
+                    # Translate to danish and find the cheapest price in the cheapest store
                     try:
                         ingredient_DK = ingredients_mapping[ingredient]
                     except:
                         continue
+
                     try:
                         cheapest_price, store, stores_data, found = find_cheapest_price(ingredient_DK, quantity, unit, price_data, memory_scores)
                     except Exception as e:
@@ -648,7 +638,7 @@ def print_results(results):
     print(Fore.GREEN + "\n==================== RESULTS ====================")
     for name, data in results.items():
         price = data.get("price")
-        print(Fore.CYAN + f">> Recipe {iteration}/{total_recipes}: {name} ({price:.1f} DKK)" + Style.RESET_ALL)
+        print(Fore.MAGENTA + f">> Recipe {iteration}/{total_recipes}: {name} ({price:.1f} DKK)" + Style.RESET_ALL)
         for ingredient, ingredient_data in data.get("stores", {}).items():
             measure = ingredient_data.get("measure", "").strip()
             store = ingredient_data.get("store")

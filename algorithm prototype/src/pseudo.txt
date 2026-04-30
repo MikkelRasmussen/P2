@@ -1,3 +1,17 @@
+
+
+
+
+>>>> DISCLAIMER:
+>>>> THE PSEUDO CODE IS WRITTEN BY CHATGPT AI,
+>>>> BY GIVING IT PROTOTYPE_SRC.PY
+
+
+
+
+
+
+
 BEGIN
 
     SET file path for recipes

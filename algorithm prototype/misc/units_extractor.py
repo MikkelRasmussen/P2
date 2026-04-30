@@ -1,12 +1,13 @@
-# This is a script to extract all the unique different units in strMeasure from all ingredients in recipe.json database
-# Results will be in measurements.txt
+# This is a quick script to extract all the unique and different
+# units in strMeasure from all ingredients in recipe.json database.
+# Results will be given in units.txt
 
 import json
 from pathlib import Path
 
 
 RECIPES_PATH = Path(r"client\src\pseudo algorithm\data\recipes.json")
-OUTPUT_PATH = Path("measurements.txt")
+OUTPUT_PATH = Path("units.txt")
 
 
 def parse_quantity(measure: str):

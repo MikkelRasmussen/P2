@@ -119,18 +119,16 @@ def fetch_data():
         føtex_prices = load_json_file(FØTEX_PRICES_FILE_PATH)
         rema_prices = load_json_file(REMA_PRICES_FILE_PATH)
 
-        prices = {
-            "bilka": bilka_prices,
-            "netto": netto_prices,
-            "føtex": føtex_prices,
-            "rema": rema_prices
-        }
-
         # Return all the databases
         return {
             "recipes": recipes,
             "ingredients_mapping": ingredients_mapping,
-            "prices": prices
+            "prices": {
+                "bilka": bilka_prices,
+                "netto": netto_prices,
+                "føtex": føtex_prices,
+                "rema": rema_prices
+            }
         }
 
     # Failsafe if an exception happens
@@ -145,14 +143,13 @@ def print_results(results):
     iteration = 1
     total_recipes = len(results)
     not_priced_count = 0
-    if "_not_priced_count" in results:
-        not_priced_count = results["_not_priced_count"]
-        total_recipes -= 1
+    if "not_priced_count" in results:
+        not_priced_count = results["not_priced_count"]
 
     print(Fore.GREEN + "\n==================== RESULTS ====================")
     print(Fore.YELLOW + f"Recipes not priced: {not_priced_count}" + Style.RESET_ALL)
     for name, data in results.items():
-        if name == "_not_priced_count":
+        if name == "not_priced_count":
             continue
 
         price = data.get("price")
@@ -857,7 +854,7 @@ def run_algorithm(amount: int = 1, # Amount of recipes needed
                 "stores": cheapest_candidate_stores
             }
         
-    results["_not_priced_count"] = len(recipes_not_priced)
+    results["not_priced_count"] = len(recipes_not_priced)
 
     # ====== ALGORITHM END ======
 

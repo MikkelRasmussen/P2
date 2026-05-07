@@ -6,11 +6,12 @@ The Pseudo code can be found in algo_pseudo.txt inside this folder.
 Go to README.txt for an overview of what the code does.
 
 TODO:
-1. Make the logic behind finding the correct ingredient names more precise
-2. Edit the fetch_data() and calculate_buy_price() functions to use SQL database instead of json
-3. Optimize recommender system: Scale the score based on ingredients; main ingredients or secondary ingredients
-4. Optimize the time complexity in loops
-5. Check and add comments, and update README
+1. Convert to js
+2. Make the logic behind finding the correct ingredient names more precise
+3. Edit the fetch_data() and calculate_buy_price() functions to use SQL database instead of json
+4. Optimize recommender system: Scale the score based on ingredients; main ingredients or secondary ingredients
+5. Optimize the time complexity in loops
+6. Check and add comments, and update README
 """
 
 
@@ -19,7 +20,6 @@ import sys
 import json
 import traceback
 import math
-import re
 init()
 
 
@@ -297,6 +297,7 @@ def calculate_buy_price(recipe, store, current_item):
         store_unit = "tsp"
     elif store_unit == "":
         store_unit = "stk"
+    
 
     # Reading the product
     if current_item is not None:
@@ -756,21 +757,116 @@ def run_algorithm(amount: int = 1, # Amount of recipes needed
 
                         return float(number)
 
-                    number_pattern = r"\d+\s+\d+/\d+|\d+/\d+|\d+(?:\.\d+)?"
+                    def read_number_text(text, start_position):
+                        if start_position >= len(text) or not text[start_position].isdigit():
+                            return "", start_position
+
+                        start = start_position
+                        position = start_position
+
+                        while position < len(text) and text[position].isdigit():
+                            position += 1
+
+                        after_whole_number = position
+
+                        # Mixed number, for example 1 1/2
+                        space_position = after_whole_number
+                        while space_position < len(text) and text[space_position] == " ":
+                            space_position += 1
+
+                        fraction_position = space_position
+                        while fraction_position < len(text) and text[fraction_position].isdigit():
+                            fraction_position += 1
+
+                        if (
+                            space_position > after_whole_number
+                            and fraction_position < len(text)
+                            and text[fraction_position] == "/"
+                        ):
+                            fraction_position += 1
+                            fraction_end = fraction_position
+
+                            while fraction_end < len(text) and text[fraction_end].isdigit():
+                                fraction_end += 1
+
+                            if fraction_end > fraction_position:
+                                return text[start:fraction_end], fraction_end
+
+                        # Fraction
+                        if position < len(text) and text[position] == "/":
+                            position += 1
+                            fraction_end = position
+
+                            while fraction_end < len(text) and text[fraction_end].isdigit():
+                                fraction_end += 1
+
+                            if fraction_end > position:
+                                return text[start:fraction_end], fraction_end
+
+                        # Decimal number
+                        if position + 1 < len(text) and text[position] == "." and text[position + 1].isdigit():
+                            position += 1
+
+                            while position < len(text) and text[position].isdigit():
+                                position += 1
+
+                        return text[start:position], position
+
+                    def read_unit_text(text, start_position):
+                        position = start_position
+
+                        while position < len(text) and text[position] == " ":
+                            position += 1
+
+                        unit = ""
+                        while position < len(text) and text[position] >= "a" and text[position] <= "z":
+                            unit += text[position]
+                            position += 1
+
+                        if unit:
+                            return unit
+
+                        return "stk"
 
                     # Checking if the measurement says 2 x 400g
-                    multiply_match = re.search(r"(" + number_pattern + r")\s*x\s*(" + number_pattern + r")\s*([a-z]+)?", quantity)
-                    if multiply_match:
-                        amount = read_number(multiply_match.group(1)) * read_number(multiply_match.group(2))
-                        unit = multiply_match.group(3) or "stk"
-                        return amount, unit
+                    position = 0
+                    while position < len(quantity):
+                        first_number, first_number_end = read_number_text(quantity, position)
+
+                        if first_number:
+                            x_position = first_number_end
+
+                            while x_position < len(quantity) and quantity[x_position] == " ":
+                                x_position += 1
+
+                            if x_position < len(quantity) and quantity[x_position] == "x":
+                                second_number_start = x_position + 1
+
+                                while second_number_start < len(quantity) and quantity[second_number_start] == " ":
+                                    second_number_start += 1
+
+                                second_number, second_number_end = read_number_text(quantity, second_number_start)
+
+                                if second_number:
+                                    amount = read_number(first_number) * read_number(second_number)
+                                    unit = read_unit_text(quantity, second_number_end)
+                                    return amount, unit
+
+                            position = first_number_end
+                        else:
+                            position += 1
 
                     # Reading the first normal number
-                    match = re.search(r"(" + number_pattern + r")\s*([a-z]+)?", quantity)
-                    if match:
-                        amount = read_number(match.group(1))
-                        unit = match.group(2) or "stk"
-                        return amount, unit
+                    position = 0
+                    while position < len(quantity):
+                        number, number_end = read_number_text(quantity, position)
+
+                        if number:
+                            amount = read_number(number)
+                            unit = read_unit_text(quantity, number_end)
+                            return amount, unit
+
+                        position += 1
 
                     # If there is no number, it is probably one item
                     words = quantity.split()

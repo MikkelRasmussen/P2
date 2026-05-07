@@ -677,6 +677,165 @@ def run_algorithm(amount: int = 1, # Amount of recipes needed
                 return 1
         except:
             return 1
+
+    # Internal helper function to parse quantities of an ingredient of the recipe
+    def parse_quantity(quantity):
+        quantity = str(quantity or "").strip().lower()
+
+        # Changing fractions to simple text
+        fractions = {
+            "\u00bd": " 1/2",
+            "\u00bc": " 1/4",
+            "\u00be": " 3/4",
+            "\u2153": " 1/3",
+            "\u2154": " 2/3",
+            "\u215b": " 1/8"
+        }
+
+        for fraction in fractions:
+            quantity = quantity.replace(fraction, fractions[fraction])
+
+        quantity = quantity.replace(",", ".")
+        quantity = quantity.replace("-", " ")
+        quantity = quantity.replace("(", " ")
+        quantity = quantity.replace(")", " ")
+
+        # Internal helper function to read numbers
+        def read_number(number):
+            number = number.strip()
+
+            if " " in number and "/" in number:
+                parts = number.split()
+                whole_number = float(parts[0])
+                fraction_parts = parts[1].split("/")
+                return whole_number + (float(fraction_parts[0]) / float(fraction_parts[1]))
+
+            if "/" in number:
+                fraction_parts = number.split("/")
+                return float(fraction_parts[0]) / float(fraction_parts[1])
+
+            return float(number)
+
+        def read_number_text(text, start_position):
+            if start_position >= len(text) or not text[start_position].isdigit():
+                return "", start_position
+
+            start = start_position
+            position = start_position
+
+            while position < len(text) and text[position].isdigit():
+                position += 1
+
+            after_whole_number = position
+
+            # Mixed number, for example 1 1/2
+            space_position = after_whole_number
+            while space_position < len(text) and text[space_position] == " ":
+                space_position += 1
+
+            fraction_position = space_position
+            while fraction_position < len(text) and text[fraction_position].isdigit():
+                fraction_position += 1
+
+            if (
+                space_position > after_whole_number
+                and fraction_position < len(text)
+                and text[fraction_position] == "/"
+            ):
+                fraction_position += 1
+                fraction_end = fraction_position
+
+                while fraction_end < len(text) and text[fraction_end].isdigit():
+                    fraction_end += 1
+
+                if fraction_end > fraction_position:
+                    return text[start:fraction_end], fraction_end
+
+            # Fraction
+            if position < len(text) and text[position] == "/":
+                position += 1
+                fraction_end = position
+
+                while fraction_end < len(text) and text[fraction_end].isdigit():
+                    fraction_end += 1
+
+                if fraction_end > position:
+                    return text[start:fraction_end], fraction_end
+
+            # Decimal number
+            if position + 1 < len(text) and text[position] == "." and text[position + 1].isdigit():
+                position += 1
+
+                while position < len(text) and text[position].isdigit():
+                    position += 1
+
+            return text[start:position], position
+
+        def read_unit_text(text, start_position):
+            position = start_position
+
+            while position < len(text) and text[position] == " ":
+                position += 1
+
+            unit = ""
+            while position < len(text) and text[position] >= "a" and text[position] <= "z":
+                unit += text[position]
+                position += 1
+
+            if unit:
+                return unit
+
+            return "stk"
+
+        # Checking if the measurement says 2 x 400g
+        position = 0
+        while position < len(quantity):
+            first_number, first_number_end = read_number_text(quantity, position)
+
+            if first_number:
+                x_position = first_number_end
+
+                while x_position < len(quantity) and quantity[x_position] == " ":
+                    x_position += 1
+
+                if x_position < len(quantity) and quantity[x_position] == "x":
+                    second_number_start = x_position + 1
+
+                    while second_number_start < len(quantity) and quantity[second_number_start] == " ":
+                        second_number_start += 1
+
+                    second_number, second_number_end = read_number_text(quantity, second_number_start)
+
+                    if second_number:
+                        amount = read_number(first_number) * read_number(second_number)
+                        unit = read_unit_text(quantity, second_number_end)
+                        return amount, unit
+
+                position = first_number_end
+            else:
+                position += 1
+
+        # Reading the first normal number
+        position = 0
+        while position < len(quantity):
+            number, number_end = read_number_text(quantity, position)
+
+            if number:
+                amount = read_number(number)
+                unit = read_unit_text(quantity, number_end)
+                return amount, unit
+
+            position += 1
+
+        # If there is no number, it is probably one item
+        words = quantity.split()
+        if len(words) > 0:
+            return 1, words[0]
+
+        return 1, "stk"
+    
+
+
     
     # ====== ALGORITHM START ======
     
@@ -719,162 +878,6 @@ def run_algorithm(amount: int = 1, # Amount of recipes needed
                 if len(ingredients_to_value) == 0:
                     recipes_not_priced[name] = True
                     continue
-
-                def parse_quantity(quantity):
-                    quantity = str(quantity or "").strip().lower()
-
-                    # Changing fractions to simple text
-                    fractions = {
-                        "\u00bd": " 1/2",
-                        "\u00bc": " 1/4",
-                        "\u00be": " 3/4",
-                        "\u2153": " 1/3",
-                        "\u2154": " 2/3",
-                        "\u215b": " 1/8"
-                    }
-
-                    for fraction in fractions:
-                        quantity = quantity.replace(fraction, fractions[fraction])
-
-                    quantity = quantity.replace(",", ".")
-                    quantity = quantity.replace("-", " ")
-                    quantity = quantity.replace("(", " ")
-                    quantity = quantity.replace(")", " ")
-
-                    # Internal helper function to read numbers
-                    def read_number(number):
-                        number = number.strip()
-
-                        if " " in number and "/" in number:
-                            parts = number.split()
-                            whole_number = float(parts[0])
-                            fraction_parts = parts[1].split("/")
-                            return whole_number + (float(fraction_parts[0]) / float(fraction_parts[1]))
-
-                        if "/" in number:
-                            fraction_parts = number.split("/")
-                            return float(fraction_parts[0]) / float(fraction_parts[1])
-
-                        return float(number)
-
-                    def read_number_text(text, start_position):
-                        if start_position >= len(text) or not text[start_position].isdigit():
-                            return "", start_position
-
-                        start = start_position
-                        position = start_position
-
-                        while position < len(text) and text[position].isdigit():
-                            position += 1
-
-                        after_whole_number = position
-
-                        # Mixed number, for example 1 1/2
-                        space_position = after_whole_number
-                        while space_position < len(text) and text[space_position] == " ":
-                            space_position += 1
-
-                        fraction_position = space_position
-                        while fraction_position < len(text) and text[fraction_position].isdigit():
-                            fraction_position += 1
-
-                        if (
-                            space_position > after_whole_number
-                            and fraction_position < len(text)
-                            and text[fraction_position] == "/"
-                        ):
-                            fraction_position += 1
-                            fraction_end = fraction_position
-
-                            while fraction_end < len(text) and text[fraction_end].isdigit():
-                                fraction_end += 1
-
-                            if fraction_end > fraction_position:
-                                return text[start:fraction_end], fraction_end
-
-                        # Fraction
-                        if position < len(text) and text[position] == "/":
-                            position += 1
-                            fraction_end = position
-
-                            while fraction_end < len(text) and text[fraction_end].isdigit():
-                                fraction_end += 1
-
-                            if fraction_end > position:
-                                return text[start:fraction_end], fraction_end
-
-                        # Decimal number
-                        if position + 1 < len(text) and text[position] == "." and text[position + 1].isdigit():
-                            position += 1
-
-                            while position < len(text) and text[position].isdigit():
-                                position += 1
-
-                        return text[start:position], position
-
-                    def read_unit_text(text, start_position):
-                        position = start_position
-
-                        while position < len(text) and text[position] == " ":
-                            position += 1
-
-                        unit = ""
-                        while position < len(text) and text[position] >= "a" and text[position] <= "z":
-                            unit += text[position]
-                            position += 1
-
-                        if unit:
-                            return unit
-
-                        return "stk"
-
-                    # Checking if the measurement says 2 x 400g
-                    position = 0
-                    while position < len(quantity):
-                        first_number, first_number_end = read_number_text(quantity, position)
-
-                        if first_number:
-                            x_position = first_number_end
-
-                            while x_position < len(quantity) and quantity[x_position] == " ":
-                                x_position += 1
-
-                            if x_position < len(quantity) and quantity[x_position] == "x":
-                                second_number_start = x_position + 1
-
-                                while second_number_start < len(quantity) and quantity[second_number_start] == " ":
-                                    second_number_start += 1
-
-                                second_number, second_number_end = read_number_text(quantity, second_number_start)
-
-                                if second_number:
-                                    amount = read_number(first_number) * read_number(second_number)
-                                    unit = read_unit_text(quantity, second_number_end)
-                                    return amount, unit
-
-                            position = first_number_end
-                        else:
-                            position += 1
-
-                    # Reading the first normal number
-                    position = 0
-                    while position < len(quantity):
-                        number, number_end = read_number_text(quantity, position)
-
-                        if number:
-                            amount = read_number(number)
-                            unit = read_unit_text(quantity, number_end)
-                            return amount, unit
-
-                        position += 1
-
-                    # If there is no number, it is probably one item
-                    words = quantity.split()
-                    if len(words) > 0:
-                        return 1, words[0]
-
-                    return 1, "stk"
-
 
                 recipe_prices = {}
                 total_price = 0
@@ -954,7 +957,14 @@ def run_algorithm(amount: int = 1, # Amount of recipes needed
 
     # ====== ALGORITHM END ======
 
+
+
+
     return results
+
+
+
+
 
 
 # Main function

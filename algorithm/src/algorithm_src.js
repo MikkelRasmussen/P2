@@ -1,3 +1,20 @@
+
+
+// ------------------ PARAMETER DASHBOARD ------------------
+
+const parameterAmountOfRecipes = 3; // Amount of recipes to recommend
+const parameterBudgetMinimum = 50; // Minimum budget
+const parameterBudgetMaximum = 75; // Maximum budget
+const parameterMemoryScore = {}; // Memory score to personalise recommendations for the user
+
+// ---------------------------------------------------------
+
+
+
+
+
+
+
 const fs = require("fs");
 const path = require("path");
 
@@ -11,8 +28,6 @@ const NETTO_PRICES_FILE_PATH = path.join("algorithm", "data", "netto_prices.json
 const FOTEX_PRICES_FILE_PATH = path.join("algorithm", "data", "føtex_prices.json");
 
 
-
-// ------------------ HELPER FUNCTIONS ------------------
 
 function fetchData() {
 
@@ -49,12 +64,13 @@ function fetchData() {
 
 function printResults(results) {
     let iteration = 1;
-    const totalRecipes = Object.keys(results).length;
+    let totalRecipes = Object.keys(results).length;
 
     let notPricedCount = 0;
 
     if ("notPricedCount" in results) {
         notPricedCount = results.notPricedCount;
+        totalRecipes -= 1
     }
 
     console.log("\n==================== RESULTS ====================");
@@ -181,9 +197,6 @@ function printResults(results) {
     console.log("=================================================\n");
 }
 
-
-
-// ------------------ MAIN FUNCTIONS ------------------
 
 function calculateBuyPrice(recipe, store, currentItem) {
     // Organizing all the possible units from units_extractor.py / units.txt
@@ -961,6 +974,6 @@ function runAlgorithm(amount = 1, budgetMin = 0, budgetMax = 9999, memoryScores 
 
 }
 
-const results = runAlgorithm(3, 0, 9999, {});
+const results = runAlgorithm(parameterAmountOfRecipes, parameterBudgetMinimum, parameterBudgetMaximum, parameterMemoryScore);
 
 printResults(results);

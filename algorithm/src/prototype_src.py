@@ -6,12 +6,11 @@ The Pseudo code can be found in algo_pseudo.txt inside this folder.
 Go to README.txt for an overview of what the code does.
 
 TODO:
-1. Convert to js
-2. Make the logic behind finding the correct ingredient names more precise
-3. Edit the fetch_data() and calculate_buy_price() functions to use SQL database instead of json
-4. Optimize recommender system: Scale the score based on ingredients; main ingredients or secondary ingredients
-5. Optimize the time complexity in loops
-6. Check and add comments, and update README
+1. Make the logic behind finding the correct ingredient names more precise
+2. Edit the fetch_data() and calculate_buy_price() functions to use SQL database instead of json
+3. Optimize recommender system: Scale the score based on ingredients; main ingredients or secondary ingredients
+4. Optimize the time complexity in loops
+5. Check and add comments, and update README
 """
 
 

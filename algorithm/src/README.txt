@@ -14,8 +14,7 @@ The program asks the user for:
 - how many recipes to find
 
 However, the javascript version doesnt ask the user.
-You have to manually edit the parameters in the runAlgorithm call at the bottom:
-runAlgorithm(amount, budget minimum, budget maximum, memory scores);
+You have to manually edit the parameters at the very top of the file
 
 After that, the program goes through the recipe database and tries to find
 recipes where all the important ingredients can be found in the price databases.

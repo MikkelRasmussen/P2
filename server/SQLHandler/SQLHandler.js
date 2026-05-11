@@ -23,15 +23,21 @@ function GetTimeStamp() {
 
 console.log(FormatContentUnitFromString("1 bæger"));
 
-const ollamaUrl = "https://show-attacked-renewable-basically.trycloudflare.com"; "http://127.0.0.1:11434";
+const ollamaUrl = "https://fax-evaluating-compilation-favorites.trycloudflare.com"; "http://127.0.0.1:11434";
 const ingrediantEmbeddings = [];
 
 module.exports = class SQLHandler {
     #client;
-    async Connect(host, user, password, port) {
-        var conString = `postgres://${user}:${password}@${host}:${port}/FoodDB`;
-
-        this.#client = new pg.Client(conString);
+    async Connect(host, user, password, port, db) {
+        var conString = `postgres://${user}:${password}@${host}:${port}/${db}?ssl=false`;
+        this.#client = new pg.Client({
+            user: user,
+            password: password,
+            host: host,
+            database: db,
+            port: port,
+            ssl: { rejectUnauthorized: false },
+        });
 
         try {
             await this.#client.connect();
@@ -39,7 +45,7 @@ module.exports = class SQLHandler {
 
 
             this.#client.on("error", (err) => {
-                console.err(err);
+                console.error(err);
             });
             this.#client.on('notification', (msg) => {
                 console.log(msg.channel) // foo
@@ -51,6 +57,7 @@ module.exports = class SQLHandler {
 
         } catch (error) {
             console.error("Could not connect to SQL Database!");
+            console.error(error);
         }
     }
     async Disconnect() {
@@ -423,13 +430,14 @@ module.exports = class SQLHandler {
             await Promise.all([ingredientEmbedding]);
             console.timeEnd("embeddingTime");
 
-            var ingrediantsAddQuery = `INSERT INTO "Ingredients" VALUES ${ingList.map((e, i) => {
-                console.log(`${i + 1} / ${ingList.length}`)
-                return `(DEFAULT, '${e.recipe}', '${e.ingredient}', '${e.measure}', '${e.embedding}')`;//.replaceAll("'", "`");
-            })} ON CONFLICT DO NOTHING;`;
-            console.log("ingrediantsAddQuery");
+            // var ingrediantsAddQuery = `INSERT INTO "Ingredients" VALUES ${ingList.map((e, i) => {
+            //     console.log(`${i + 1} / ${ingList.length}`)
+            //     return `(DEFAULT, '${e.recipe}', '${e.ingredient}', '${e.measure}', '${e.embedding}')`;//.replaceAll("'", "`");
+            // })} ON CONFLICT DO NOTHING;`;
+            // console.log("ingrediantsAddQuery");
 
-            recipes.forEach(async item => {
+            for (var i = 0; i < recipes.length; i++) {
+                var item = recipes[i];
                 var ingMesList = GenerateIngredientListWithMesures(item);
                 var cat = item["strCategory"].replaceAll("'", "`");
                 var name = item["strMeal"].replaceAll("'", "`");
@@ -437,22 +445,24 @@ module.exports = class SQLHandler {
                 var url = item["strMealThumb"].replaceAll("'", "`");
                 var queryString =
                     `INSERT INTO "Recipes" VALUES ('${name}', '${JSON.stringify(ingMesList)}', '${instruct}', '${cat}', '${url}') ON CONFLICT DO NOTHING;`;
-                // console.log(queryString);
+
+                console.log(`Adding recipe: ${i + 1} / ${recipes.length}`)
                 if (await this.Query(queryString) === undefined) {
                     // console.error(queryString);
                 }
-            })
-            if (await this.Query(ingrediantsAddQuery) === undefined) {
-                // console.error(queryString);
             }
-            // for (var i = 0; i < ingList.length; i++) {
-            //     const e = ingList[i];
-            //     console.log(`INSERT INTO "Ingredients" VALUES (${e.recipe}, ${e.ingredient}, ${e.measure}, ${e.embedding})`);
-            //     if (await this.Query(`INSERT INTO "Ingredients" VALUES ('${e.recipe}', '${e.ingredient}', '${e.measure}', '${e.embedding}')`) === undefined) {
-            //         // console.error(queryString);
-            //     }
 
-            // }
+            console.log("Adding ingrediants to database!");
+            for (var i = 0; i < ingList.length; i++) {
+                var e = ingList[i];
+                var queryString =
+                    `INSERT INTO "Ingredients" VALUES (DEFAULT, '${e.recipe}', '${e.ingredient}', '${e.measure}', '${e.embedding}') ON CONFLICT DO NOTHING;`;
+
+                console.log(`Adding ingredient: ${i + 1} / ${ingList.length}`)
+                if (await this.Query(queryString) === undefined) {
+                    // console.error(queryString);
+                }
+            }
 
 
             function GenerateIngredientListWithMesures(item) {

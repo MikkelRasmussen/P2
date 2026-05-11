@@ -3,8 +3,7 @@
 
 
 >>>> DISCLAIMER:
->>>> THE PSEUDO CODE IS WRITTEN BY CHATGPT AI,
->>>> BY GIVING IT PROTOTYPE_SRC.PY
+>>>> THE PSEUDO CODE IS WRITTEN BY CHATGPT AI, BY FEEDING IT js_algorithm.js
 
 
 
@@ -16,90 +15,18 @@ BEGIN
 
     SET file path for recipes
     SET file path for ingredient mapping
-    SET file path for measurement mapping
     SET file path for Bilka prices
     SET file path for Netto prices
     SET file path for Foetex prices
-    SET file path for Rema prices
-
-
-    FUNCTION GetInputs
-
-        REPEAT
-            ASK user for minimum price per recipe
-            READ budgetMin
-
-            IF budgetMin is not a valid number THEN
-                DISPLAY error message
-                WAIT for user
-            ELSE IF budgetMin is less than 0 THEN
-                DISPLAY error message
-                WAIT for user
-            ELSE
-                EXIT loop
-            END IF
-        END REPEAT
-
-
-        REPEAT
-            ASK user for maximum price per recipe
-            READ budgetMax
-
-            IF budgetMax is not a valid number THEN
-                DISPLAY error message
-                WAIT for user
-            ELSE IF budgetMax is less than budgetMin THEN
-                DISPLAY error message
-                WAIT for user
-            ELSE IF budgetMax is less than or equal to 0 THEN
-                DISPLAY error message
-                WAIT for user
-            ELSE
-                EXIT loop
-            END IF
-        END REPEAT
-
-
-        REPEAT
-            ASK user for number of recipes
-            READ recipesAmount
-
-            IF recipesAmount is not a whole number THEN
-                DISPLAY error message
-                WAIT for user
-            ELSE IF recipesAmount is less than or equal to 0 THEN
-                DISPLAY error message
-                WAIT for user
-            ELSE
-                EXIT loop
-            END IF
-        END REPEAT
-
-        RETURN budgetMin, budgetMax, recipesAmount
-
-    END FUNCTION
-
 
 
     FUNCTION FetchData
 
-        FUNCTION LoadJsonFile(path, defaultValue, required)
+        FUNCTION LoadJsonFile(filePath)
 
-            TRY
-                OPEN file at path
-                READ JSON data
-                RETURN JSON data
-
-            IF file does not exist THEN
-                IF required is true THEN
-                    RAISE error
-                ELSE
-                    RETURN defaultValue
-                END IF
-
-            IF JSON is invalid THEN
-                RAISE error
-            END TRY
+            READ file content from filePath as UTF-8 text
+            PARSE file content as JSON
+            RETURN parsed JSON data
 
         END FUNCTION
 
@@ -107,21 +34,20 @@ BEGIN
         TRY
             LOAD recipes from recipe file
             LOAD ingredientsMapping from ingredient mapping file
-            LOAD measurementsMapping from measurement mapping file if available
-            LOAD Bilka prices
-            LOAD Netto prices
-            LOAD Foetex prices
-            LOAD Rema prices
+            LOAD Bilka prices from Bilka price file
+            LOAD Netto prices from Netto price file
+            LOAD Foetex prices from Foetex price file
 
-            RETURN a data structure containing:
+            RETURN object containing:
                 recipes
                 ingredientsMapping
-                measurementsMapping
-                prices for all stores
+                prices:
+                    Bilka prices
+                    Netto prices
+                    Foetex prices
 
         IF an error occurs THEN
             DISPLAY error message
-            WAIT for user
             CLOSE program
         END TRY
 
@@ -129,71 +55,364 @@ BEGIN
 
 
 
-    FUNCTION FindCheapestPrice(ingredient, priceData, memoryScores)
+    FUNCTION PrintResults(results)
 
-        IF ingredient exists in memoryScores THEN
-            SET score to memoryScores[ingredient]
-        ELSE
-            SET score to 1
+        SET iteration to 1
+        SET totalRecipes to number of keys in results
+
+        SET notPricedCount to 0
+
+        IF results contains notPricedCount THEN
+            SET notPricedCount to results.notPricedCount
         END IF
 
-        GET Bilka, Netto, Foetex, and Rema price data from priceData
+        DISPLAY results header
+        DISPLAY number of recipes not priced
 
-        SET BilkaPrice to a very large number
-        FOR EACH item in Bilka data
-            IF ingredient is found in item description THEN
-                IF item price is lower than BilkaPrice THEN
-                    SET BilkaPrice to item price multiplied by score
-                END IF
+        FOR EACH name and data in results
+
+            IF name is notPricedCount THEN
+                SKIP this entry
             END IF
-        END FOR
 
-        SET NettoPrice to a very large number
-        FOR EACH item in Netto data
-            IF ingredient is found in item description THEN
-                IF item price is lower than NettoPrice THEN
-                    SET NettoPrice to item price multiplied by score
+            GET recipe price from data
+
+            DISPLAY recipe number, recipe name, and recipe price
+
+            FOR EACH ingredient and ingredientData in data.stores
+
+                GET measure from ingredientData
+                GET chosen store from ingredientData
+                GET product name from ingredientData
+                GET amount to buy from ingredientData
+                GET ingredient price from ingredientData
+                GET storesData from ingredientData
+
+                GET chosenStoreData from storesData using chosen store
+                GET unit price from chosenStoreData
+                GET unit from chosenStoreData
+
+                SET pricePerBuy to 0
+
+                IF amountToBuy is greater than 0 THEN
+                    SET pricePerBuy to ingredient price divided by amountToBuy
                 END IF
-            END IF
-        END FOR
 
-        SET FoetexPrice to a very large number
-        FOR EACH item in Foetex data
-            IF ingredient is found in item description THEN
-                IF item price is lower than FoetexPrice THEN
-                    SET FoetexPrice to item price multiplied by score
-                END IF
-            END IF
-        END FOR
+                SET ranking to empty list
 
-        SET RemaPrice to a very large number
-        FOR EACH department in Rema departments
-            FOR EACH category in department categories
-                FOR EACH item in category items
-                    IF ingredient is found in item name THEN
-                        IF item price is lower than RemaPrice THEN
-                            SET RemaPrice to item price multiplied by score
+                FOR EACH storeName and storeData in storesData
+
+                    GET storePrice from storeData
+
+                    IF storePrice was found THEN
+                        GET rankAmountToBuy from storeData
+
+                        SET rankPricePerBuy to 0
+
+                        IF rankAmountToBuy is greater than 0 THEN
+                            SET rankPricePerBuy to storePrice divided by rankAmountToBuy
                         END IF
+
+                        ADD object to ranking containing:
+                            store name
+                            price
+                            amount to buy
+                            product name
+                            price per unit
+                            unit
+                            price per buy
                     END IF
+
                 END FOR
+
+                SORT ranking by price from cheapest to most expensive
+
+                IF measure exists THEN
+                    DISPLAY measure and ingredient name
+                ELSE
+                    DISPLAY ingredient name
+                END IF
+
+                DISPLAY chosen store
+
+                IF product name exists THEN
+                    DISPLAY product name
+                END IF
+
+                DISPLAY amount to buy
+                DISPLAY ingredient price
+
+                IF unit price and unit exist THEN
+                    DISPLAY price per unit
+                END IF
+
+                IF amountToBuy is greater than 0 THEN
+                    DISPLAY price per buy
+                END IF
+
+                IF ranking is not empty THEN
+                    DISPLAY ranking header
+
+                    SET rankNumber to 1
+
+                    FOR EACH rankData in ranking
+
+                        CREATE rank line with:
+                            rank number
+                            store
+                            price
+                            amount to buy
+
+                        IF price per unit and unit exist THEN
+                            ADD price per unit to rank line
+                        END IF
+
+                        IF amount to buy is greater than 0 THEN
+                            ADD price per buy to rank line
+                        END IF
+
+                        IF product name exists THEN
+                            ADD product name to rank line
+                        END IF
+
+                        DISPLAY rank line
+                        INCREASE rankNumber by 1
+
+                    END FOR
+
+                END IF
+
             END FOR
+
+            INCREASE iteration by 1
+
         END FOR
 
-        CREATE a collection of store prices:
-            Bilka
-            Netto
-            Foetex
-            Rema
+        DISPLAY results footer
 
-        FIND the store with the lowest price
-        SET cheapestPrice to that lowest price
-        SET cheapestStore to that store
+    END FUNCTION
 
-        IF cheapestPrice was not found THEN
-            RETURN NULL, NULL
+
+
+    FUNCTION CalculateBuyPrice(recipe, store, currentItem)
+
+        SET lists of known volume units
+        SET lists of known weight units
+        SET lists of miscellaneous units
+        SET lists of abstract units
+        SET lists of ignored units
+
+        GET recipe quantity from recipe
+        GET recipe unit from recipe
+        CLEAN recipe unit
+
+        GET store price from store
+        GET store unit from store
+        CLEAN store unit
+
+        SET resultingPrice to very large number
+        SET amountToBuy to 0
+        SET storeQuantity to null
+        SET storeQuantityUnit to empty text
+        SET packagePrice to store price
+
+        CONVERT recipe quantity to number
+        CONVERT store price to number
+
+        IF recipe quantity or store price is not a number THEN
+            RETURN resultingPrice and amountToBuy
         END IF
 
-        RETURN cheapestPrice, cheapestStore
+        NORMALISE recipe unit:
+            grams become g
+            kilograms become kg
+            milliliters become ml
+            liters become l
+            tablespoons become tbs
+            teaspoons become tsp
+            empty unit becomes stk
+            miscellaneous, abstract, or ignored units become stk
+
+        NORMALISE store unit:
+            grams become g
+            kilograms become kg
+            milliliters become ml
+            liters become l
+            tablespoons become tbs
+            teaspoons become tsp
+            empty unit becomes stk
+
+        IF currentItem exists THEN
+
+            TRY to read package price from currentItem price
+            IF package price is not valid THEN
+                USE store price as package price
+            END IF
+
+            TRY to read package quantity from currentItem contents
+
+            IF package quantity is valid THEN
+                READ and clean package quantity unit from currentItem contentsUnit
+            ELSE
+                SET package quantity to null
+            END IF
+
+        END IF
+
+        NORMALISE package quantity unit:
+            grams become g
+            kilograms become kg
+            milliliters become ml
+            liters become l
+            miscellaneous, abstract, ignored, or empty units become stk
+
+        SET weight conversion values to grams
+        SET volume conversion values to milliliters
+
+        IF package quantity exists and is greater than 0 THEN
+
+            IF recipe unit equals package quantity unit THEN
+                SET amountToBuy to recipe quantity divided by package quantity, rounded up
+
+            ELSE IF recipe unit is a weight unit and package unit can be converted to grams THEN
+                CONVERT recipe quantity to grams
+                CONVERT package quantity to grams
+                SET amountToBuy to recipe grams divided by package grams, rounded up
+
+            ELSE IF recipe unit is a volume unit and package unit can be converted to milliliters THEN
+                CONVERT recipe quantity to milliliters
+                CONVERT package quantity to milliliters
+                SET amountToBuy to recipe milliliters divided by package milliliters, rounded up
+
+            ELSE IF both recipe unit and package unit are stk THEN
+                SET amountToBuy to recipe quantity divided by package quantity, rounded up
+            END IF
+
+            IF amountToBuy is greater than 0 THEN
+                SET resultingPrice to packagePrice multiplied by amountToBuy
+            END IF
+
+        END IF
+
+        IF resultingPrice is still the very large number THEN
+
+            IF recipe unit equals store unit THEN
+                SET resultingPrice to store price multiplied by recipe quantity
+                SET amountToBuy to recipe quantity rounded up
+
+            ELSE IF recipe unit is a weight unit and store unit can be converted to grams THEN
+                CONVERT recipe quantity to grams
+                CONVERT store unit to grams
+                SET resultingPrice to store price multiplied by recipe grams divided by store grams
+                SET amountToBuy to 1
+
+            ELSE IF recipe unit is a volume unit and store unit can be converted to milliliters THEN
+                CONVERT recipe quantity to milliliters
+                CONVERT store unit to milliliters
+                SET resultingPrice to store price multiplied by recipe milliliters divided by store milliliters
+                SET amountToBuy to 1
+
+            ELSE IF both recipe unit and store unit are stk THEN
+                SET resultingPrice to store price multiplied by recipe quantity
+                SET amountToBuy to recipe quantity rounded up
+            END IF
+
+        END IF
+
+        IF resultingPrice is not the very large number THEN
+            ROUND resultingPrice to 2 decimals
+        END IF
+
+        RETURN resultingPrice and amountToBuy
+
+    END FUNCTION
+
+
+
+    FUNCTION FindCheapestPrice(ingredient, quantity, unit, priceData)
+
+        TRY
+            GET Bilka data from priceData
+            GET Netto data from priceData
+            GET Foetex data from priceData
+        IF an error occurs THEN
+            RETURN null, null, null, false
+        END TRY
+
+        CREATE recipeQuantity object with:
+            quantity
+            unit
+
+        SET ingredientLower to lowercase ingredient
+
+
+        SET Bilka best price to very large number
+        SET Bilka amount to buy to 0
+        SET Bilka product name to null
+        SET Bilka unit price to null
+        SET Bilka unit to null
+
+        FOR EACH item in Bilka data
+
+            IF ingredientLower is found in item description THEN
+
+                GET item unit price
+                GET item price unit
+
+                CREATE storeQuantity object with:
+                    price as item unit price
+                    unit as item price unit
+
+                CALL CalculateBuyPrice using recipeQuantity, storeQuantity, and current item
+
+                IF calculated price is lower than Bilka best price THEN
+                    SAVE calculated price
+                    SAVE amount to buy
+                    SAVE unit price
+                    SAVE unit
+                    SAVE product name
+                END IF
+
+            END IF
+
+        END FOR
+
+
+        REPEAT the same process for Netto data
+
+
+        REPEAT the same process for Foetex data
+
+
+        CREATE prices object containing:
+            Bilka calculated price
+            Netto calculated price
+            Foetex calculated price
+
+        SET store to Bilka by default
+
+        IF Netto price is lower than current selected store price THEN
+            SET store to Netto
+        END IF
+
+        IF Foetex price is lower than current selected store price THEN
+            SET store to Foetex
+        END IF
+
+        SET cheapestPrice to prices[store]
+
+        CREATE storesData object containing data for each store:
+            price
+            amount to buy
+            product name
+            price per unit
+            unit
+
+        IF cheapestPrice is still the very large number THEN
+            RETURN null, null, null, false
+        END IF
+
+        RETURN cheapestPrice, store, storesData, true
 
     END FUNCTION
 
@@ -207,63 +426,311 @@ BEGIN
         GET ingredient mapping from data
         GET store prices from data
 
-        SET results to empty collection
+        SET basicIngredients to list of ingredients that should be skipped
+
+
+        FUNCTION GetMemoryScore(name)
+
+            TRY
+                IF name exists in memoryScores THEN
+                    RETURN memoryScores[name] as number
+
+                ELSE IF lowercase name exists in memoryScores THEN
+                    RETURN memoryScores[lowercase name] as number
+
+                ELSE
+                    RETURN 1
+                END IF
+
+            IF an error occurs THEN
+                RETURN 1
+            END TRY
+
+        END FUNCTION
+
+
+        FUNCTION ParseQuantity(quantity)
+
+            CONVERT quantity to lowercase text and trim whitespace
+
+            REPLACE fraction symbols with normal fraction text:
+                ½ becomes 1/2
+                ¼ becomes 1/4
+                ¾ becomes 3/4
+                ⅓ becomes 1/3
+                ⅔ becomes 2/3
+                ⅛ becomes 1/8
+
+            REPLACE comma with dot
+            REPLACE dash with space
+            REPLACE opening parenthesis with space
+            REPLACE closing parenthesis with space
+
+
+            FUNCTION ReadNumber(number)
+
+                TRIM number
+
+                IF number contains space and slash THEN
+                    SPLIT number into whole number and fraction
+                    CONVERT whole number to number
+                    SPLIT fraction into numerator and denominator
+                    RETURN whole number plus numerator divided by denominator
+                END IF
+
+                IF number contains slash THEN
+                    SPLIT number into numerator and denominator
+                    RETURN numerator divided by denominator
+                END IF
+
+                RETURN number converted to numeric value
+
+            END FUNCTION
+
+
+            FUNCTION IsDigit(character)
+
+                RETURN true if character is between 0 and 9
+                OTHERWISE return false
+
+            END FUNCTION
+
+
+            FUNCTION ReadNumberText(text, startPosition)
+
+                IF startPosition is outside text OR character at startPosition is not a digit THEN
+                    RETURN empty text and startPosition
+                END IF
+
+                SET start to startPosition
+                SET position to startPosition
+
+                WHILE position is inside text AND character at position is a digit
+                    INCREASE position by 1
+                END WHILE
+
+                SET afterWholeNumber to position
+
+                CHECK for mixed fraction number, for example 1 1/2:
+                    SKIP spaces after whole number
+                    READ fraction numerator
+                    IF there was space and a slash follows numerator THEN
+                        READ denominator
+                        IF denominator exists THEN
+                            RETURN number text and end position
+                        END IF
+                    END IF
+
+                CHECK for normal fraction, for example 1/2:
+                    IF slash follows first number THEN
+                        READ denominator
+                        IF denominator exists THEN
+                            RETURN fraction text and end position
+                        END IF
+                    END IF
+
+                CHECK for decimal number, for example 1.5:
+                    IF dot follows first number and a digit follows dot THEN
+                        READ digits after dot
+                    END IF
+
+                RETURN number text and end position
+
+            END FUNCTION
+
+
+            FUNCTION ReadUnitText(text, startPosition)
+
+                SET position to startPosition
+
+                SKIP spaces
+
+                SET unit to empty text
+
+                WHILE position is inside text AND character is a lowercase letter
+                    ADD character to unit
+                    INCREASE position by 1
+                END WHILE
+
+                IF unit exists THEN
+                    RETURN unit
+                END IF
+
+                RETURN stk
+
+            END FUNCTION
+
+
+            CHECK if measurement has format "number x number unit":
+                SCAN through quantity text
+                TRY to read first number
+                IF first number exists THEN
+                    SKIP spaces
+                    IF next character is x THEN
+                        SKIP spaces after x
+                        TRY to read second number
+                        IF second number exists THEN
+                            SET amount to first number multiplied by second number
+                            READ unit after second number
+                            RETURN amount and unit
+                        END IF
+                    END IF
+                END IF
+
+            CHECK for first normal number:
+                SCAN through quantity text
+                TRY to read number
+                IF number exists THEN
+                    CONVERT number text to numeric amount
+                    READ unit after number
+                    RETURN amount and unit
+                END IF
+
+            IF no number exists THEN
+                SPLIT quantity into words
+                IF at least one word exists THEN
+                    RETURN 1 and first word
+                END IF
+            END IF
+
+            RETURN 1 and stk
+
+        END FUNCTION
+
+
+
+        SET results to empty object
+        SET recipesNotPriced to empty object
 
         REPEAT amount times
 
-            SET cheapestCandidatePrice to a very large number
-            SET cheapestCandidateName to NULL
-            SET cheapestCandidateStores to NULL
-            SET candidates to empty collection
+            SET candidates to empty object
+            SET cheapestCandidatePrice to very large number
+            SET cheapestCandidateScore to very large number
+            SET cheapestCandidateName to null
+            SET cheapestCandidateStores to null
 
             FOR EACH recipeRow in recipes
 
                 GET meals from recipeRow
+                IF meals does not exist THEN
+                    USE empty list
 
                 FOR EACH recipe in meals
 
-                    SET name to recipe meal name
+                    GET recipe name
 
-                    IF name already exists in results THEN
+                    IF recipe name already exists in results THEN
                         SKIP this recipe
                     END IF
 
-                    SET ingredients to empty list
+                    SET ingredientsToValue to empty list
 
-                    FOR number from 1 to 20
-                        GET ingredient field from recipe
-                        CLEAN the ingredient text
+                    FOR n from 1 to 20
+
+                        GET ingredient field strIngredient n
+                        GET measure field strMeasure n
+
                         IF ingredient exists THEN
-                            ADD ingredient to ingredients list
+                            TRIM ingredient
                         END IF
+
+                        IF measure exists THEN
+                            TRIM measure
+                        END IF
+
+                        IF ingredient exists after trimming THEN
+                            SET normalizedIngredient to lowercase ingredient
+
+                            IF normalizedIngredient is not in basicIngredients THEN
+                                ADD object to ingredientsToValue:
+                                    name as ingredient
+                                    measure as measure or empty text
+                            END IF
+                        END IF
+
                     END FOR
 
-                    SET recipePrices to empty collection
+                    IF ingredientsToValue is empty THEN
+                        MARK recipe as not priced
+                        SKIP this recipe
+                    END IF
+
+                    SET recipePrices to empty object
                     SET totalPrice to 0
+                    SET rankingPrice to 0
+                    SET successBool to true
 
-                    FOR EACH ingredient in ingredients
+                    FOR EACH ingredientData in ingredientsToValue
 
-                        TRANSLATE ingredient to Danish using ingredient mapping
+                        GET ingredient name
+                        GET ingredient measurement
 
-                        FIND cheapest price and cheapest store by calling FindCheapestPrice
+                        TRY
+                            PARSE measurement using ParseQuantity
+                            GET quantity and unit
+                        IF an error occurs THEN
+                            SET successBool to false
+                            STOP ingredient loop
+                        END TRY
 
-                        IF no price or store is found THEN
-                            SKIP this ingredient
+                        TRANSLATE ingredient to Danish using ingredientsMapping
+
+                        IF Danish ingredient was not found THEN
+                            SET successBool to false
+                            STOP ingredient loop
                         END IF
 
-                        SAVE ingredient price and store in recipePrices
-                        ADD cheapest price to totalPrice
+                        TRY
+                            CALL FindCheapestPrice with Danish ingredient, quantity, unit, and priceData
+                            GET cheapestPrice, store, storesData, and found
+                        IF an error occurs THEN
+                            DISPLAY error message
+                            SET successBool to false
+                            STOP ingredient loop
+                        END TRY
+
+                        IF found is false OR cheapestPrice is null OR store is null OR storesData is null THEN
+                            SET successBool to false
+                            STOP ingredient loop
+                        END IF
+
+                        GET ingredientScore using original ingredient name
+
+                        IF ingredientScore equals 1 THEN
+                            GET ingredientScore using Danish ingredient name
+                        END IF
+
+                        SAVE ingredient data in recipePrices:
+                            measure
+                            selected store
+                            storesData
+                            selected product name
+                            amount to buy
+                            cheapest price
+                            memory score
+
+                        ADD cheapestPrice to totalPrice
+                        ADD cheapestPrice multiplied by ingredientScore to rankingPrice
 
                     END FOR
+
+                    IF successBool is false THEN
+                        MARK recipe as not priced
+                        SKIP this recipe
+                    END IF
 
                     IF totalPrice is between budgetMin and budgetMax THEN
-                        SAVE recipe in candidates
 
-                        IF totalPrice is lower than cheapestCandidatePrice THEN
+                        SAVE recipePrices in candidates using recipe name
+
+                        IF rankingPrice is lower than cheapestCandidateScore THEN
                             SET cheapestCandidatePrice to totalPrice
-                            SET cheapestCandidateName to name
+                            SET cheapestCandidateScore to rankingPrice
+                            SET cheapestCandidateName to recipe name
                             SET cheapestCandidateStores to recipePrices
                         END IF
+
                     END IF
 
                 END FOR
@@ -272,12 +739,14 @@ BEGIN
 
             IF cheapestCandidateName exists THEN
                 ADD recipe to results with:
-                    recipe name
-                    total price
-                    ingredient store details
+                    price
+                    score
+                    stores
             END IF
 
         END REPEAT
+
+        SET notPricedCount in results to number of keys in recipesNotPriced
 
         RETURN results
 
@@ -285,21 +754,14 @@ BEGIN
 
 
 
-    FUNCTION Main
+    RUN RunAlgorithm with:
+        amount = 3
+        budgetMin = 0
+        budgetMax = 9999
+        memoryScores = empty object
 
-        GET budgetMin, budgetMax, and recipesAmount from GetInputs
-        SET memoryScores to empty collection
+    STORE returned value as results
 
-        TRY
-            RUN algorithm with recipesAmount, budgetMin, budgetMax, and memoryScores
-            STORE result in results
-
-        IF an error occurs THEN
-            DISPLAY error message
-            DISPLAY full error details
-            WAIT for user
-        END TRY
-
-    END FUNCTION
+    CALL PrintResults with results
 
 END

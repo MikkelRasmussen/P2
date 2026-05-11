@@ -1,7 +1,8 @@
 
 
 This is a prototype of our algorithm for finding cheap recipes.
-The code is made as a Python test program, because i am more confident with using Python.
+The code is originally made as a python test program, because i am more confident with using python.
+It is later translated to javascript
 
 
 
@@ -12,6 +13,10 @@ The program asks the user for:
 - maximum price per recipe
 - how many recipes to find
 
+However, the javascript version doesnt ask the user.
+You have to manually edit the parameters in the runAlgorithm call at the bottom:
+runAlgorithm(amount, budget minimum, budget maximum, memory scores);
+
 After that, the program goes through the recipe database and tries to find
 recipes where all the important ingredients can be found in the price databases.
 If a recipe has an ingredient that can not be priced, the recipe is not shown.
@@ -21,7 +26,7 @@ If a recipe has an ingredient that can not be priced, the recipe is not shown.
         HOW IT WORKS OVERALL
 
 The program first loads all the JSON files from the data folder:
-recipes, ingredient mapping, and prices from Bilka, Netto, Føtex and Rema1000.
+recipes, ingredient mapping, and prices from Bilka, Netto and Føtex.
 
 The ingredients in the recipes are in English, so the program uses
 mapping_ingredienser.json to translate them into Danish names. After that, it

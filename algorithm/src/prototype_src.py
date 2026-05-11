@@ -31,7 +31,6 @@ INGREDIENTS_MAPPING_FILE_PATH = r"algorithm prototype\data\mapping_ingredienser.
 BILKA_PRICES_FILE_PATH = r"algorithm prototype\data\bilka_prices.json" # File path to the database of Bilka prices
 NETTO_PRICES_FILE_PATH = r"algorithm prototype\data\netto_prices.json" # File path to the database of Netto prices
 FØTEX_PRICES_FILE_PATH = r"algorithm prototype\data\føtex_prices.json" # File path to the database of Føtex prices
-REMA_PRICES_FILE_PATH = r"algorithm prototype\data\rema_prices.json" # File path to the database of Rema1000 prices
 
 
 
@@ -117,7 +116,6 @@ def fetch_data():
         bilka_prices = load_json_file(BILKA_PRICES_FILE_PATH)
         netto_prices = load_json_file(NETTO_PRICES_FILE_PATH)
         føtex_prices = load_json_file(FØTEX_PRICES_FILE_PATH)
-        rema_prices = load_json_file(REMA_PRICES_FILE_PATH)
 
         # Return all the databases
         return {
@@ -126,8 +124,7 @@ def fetch_data():
             "prices": {
                 "bilka": bilka_prices,
                 "netto": netto_prices,
-                "føtex": føtex_prices,
-                "rema": rema_prices
+                "føtex": føtex_prices
             }
         }
 
@@ -301,54 +298,16 @@ def calculate_buy_price(recipe, store, current_item):
 
     # Reading the product
     if current_item is not None:
+        try:
+            package_price = float(current_item["price"])
+        except:
+            package_price = store_price
 
-        # Rema1000
-        if "pricing" in current_item:
-
-            # Converting to float type
-            try:
-                package_price = float(current_item["pricing"]["price"])
-            except:
-                package_price = store_price
-
-            text = str(current_item.get("underline") or "").lower()
-            text = text.replace(".", "")
-            text = text.replace("/", " ")
-            parts = text.split()
-
-            for n in range(len(parts) - 1):
-                try:
-                    possible_quantity = float(parts[n].replace(",", "."))
-                except:
-                    continue
-
-                possible_unit = parts[n + 1]
-                if possible_unit == "gr":
-                    possible_unit = "g"
-                elif possible_unit == "ltr":
-                    possible_unit = "l"
-
-                if possible_unit in ["g", "kg", "mg", "ml", "dl", "cl", "l", "stk"]:
-                    store_quantity = possible_quantity
-                    store_quantity_unit = possible_unit
-                    break
-
-            if store_quantity is None and package_price > 0 and store_price > 0:
-                store_quantity = package_price / store_price
-                store_quantity_unit = store_unit
-
-        # Bilka, Føtex, Netto
-        else:
-            try:
-                package_price = float(current_item["price"])
-            except:
-                package_price = store_price
-
-            try:
-                store_quantity = float(current_item["contents"])
-                store_quantity_unit = str(current_item["contentsUnit"]).strip().lower()
-            except:
-                pass
+        try:
+            store_quantity = float(current_item["contents"])
+            store_quantity_unit = str(current_item["contentsUnit"]).strip().lower()
+        except:
+            pass
 
     # Normalising the package unit
     if store_quantity_unit in ["gr", "gram", "grams"]:
@@ -441,14 +400,13 @@ def calculate_buy_price(recipe, store, current_item):
     return resulting_price, amount_to_buy
 
 
-# Helper function to determine the cheapest price from the cheapest store
+# Function to determine the cheapest price from the cheapest store
 def find_cheapest_price(ingredient: str, quantity, unit, price_data: dict):
 
     try:
         bilka = price_data.get("bilka")
         netto = price_data.get("netto")
         føtex = price_data.get("føtex")
-        rema = price_data.get("rema")
     except:
         return None, None, None, False
     
@@ -458,7 +416,6 @@ def find_cheapest_price(ingredient: str, quantity, unit, price_data: dict):
     ingredient_lower = ingredient.lower()
 
     #Bilka to go
-    price_bilka = 999999
     price_to_buy_bilka = 999999
     amount_to_buy_bilka = 0
     product_name_bilka = None
@@ -474,7 +431,6 @@ def find_cheapest_price(ingredient: str, quantity, unit, price_data: dict):
             price_to_buy_bilka_check, amount_to_buy_bilka_check = calculate_buy_price(recipe_quantity, store_quantity, bilka[i])
 
             if price_to_buy_bilka_check < price_to_buy_bilka:
-                price_bilka = bilka[i]["price"]
                 price_to_buy_bilka = price_to_buy_bilka_check
                 amount_to_buy_bilka = amount_to_buy_bilka_check
                 unit_price_bilka = unit_price_bilka_check
@@ -483,7 +439,6 @@ def find_cheapest_price(ingredient: str, quantity, unit, price_data: dict):
 
 
     # Netto plus
-    price_netto = 999999
     price_to_buy_netto = 999999
     amount_to_buy_netto = 0
     product_name_netto = None
@@ -499,7 +454,6 @@ def find_cheapest_price(ingredient: str, quantity, unit, price_data: dict):
             price_to_buy_netto_check, amount_to_buy_netto_check = calculate_buy_price(recipe_quantity, store_quantity, netto[i])
 
             if price_to_buy_netto_check < price_to_buy_netto:
-                price_netto = netto[i]["price"]
                 price_to_buy_netto = price_to_buy_netto_check
                 amount_to_buy_netto = amount_to_buy_netto_check
                 unit_price_netto = unit_price_netto_check
@@ -507,7 +461,6 @@ def find_cheapest_price(ingredient: str, quantity, unit, price_data: dict):
                 product_name_netto = netto[i]["description"]
 
     # Føtex plus
-    price_føtex = 999999
     price_to_buy_føtex = 999999
     amount_to_buy_føtex = 0
     product_name_føtex = None
@@ -523,62 +476,23 @@ def find_cheapest_price(ingredient: str, quantity, unit, price_data: dict):
             price_to_buy_føtex_check, amount_to_buy_føtex_check = calculate_buy_price(recipe_quantity, store_quantity, føtex[i])
 
             if price_to_buy_føtex_check < price_to_buy_føtex:
-                price_føtex = føtex[i]["price"]
                 price_to_buy_føtex = price_to_buy_føtex_check
                 amount_to_buy_føtex = amount_to_buy_føtex_check
                 unit_price_føtex = unit_price_føtex_check
                 unit_føtex = unit_føtex_check
                 product_name_føtex = føtex[i]["description"]
 
-    # REMA1000
-    price_rema = 999999
-    price_to_buy_rema = 999999
-    amount_to_buy_rema = 0
-    product_name_rema = None
-    unit_price_rema = None
-    unit_rema = None
-    for department in rema["departments"]:
-        for category in department["categories"]:
-            for item in category["items"]:
-                if ingredient_lower in item["name"].lower():
-                    unit_price_rema_check = item["pricing"]["price_per_kilogram"]
-                    unit_rema_check = "kg"
-
-                    if unit_price_rema_check is None or unit_price_rema_check == 0:
-                        unit_price_rema_check = item["pricing"]["price"]
-                        unit_rema_check = "stk"
-
-                    store_quantity = {"price": unit_price_rema_check, "unit": unit_rema_check}
-
-                    price_to_buy_rema_check, amount_to_buy_rema_check = calculate_buy_price(recipe_quantity, store_quantity, item)
-
-                    if price_to_buy_rema_check < price_to_buy_rema:
-                        price_rema = item["pricing"]["price"]
-                        price_to_buy_rema = price_to_buy_rema_check
-                        amount_to_buy_rema = amount_to_buy_rema_check
-                        unit_price_rema = unit_price_rema_check
-                        unit_rema = unit_rema_check
-                        product_name_rema = item["name"]
-
     # Comparing the cheapest price from each store with each other
     # to find the overall lowest price.
-    scores = {
-        "bilka": price_to_buy_bilka,
-        "netto": price_to_buy_netto,
-        "føtex": price_to_buy_føtex,
-        "rema": price_to_buy_rema
-    }
-
     prices = {
         "bilka": price_to_buy_bilka,
         "netto": price_to_buy_netto,
-        "føtex": price_to_buy_føtex,
-        "rema": price_to_buy_rema    
+        "føtex": price_to_buy_føtex   
     }
 
     # Finding the name of the cheapest store and its price
     try:
-        store = min(scores, key=scores.get)
+        store = min(prices, key=prices.get)
         cheapest_price = prices[store]
     except Exception as e:
         return None, None, None, False
@@ -605,13 +519,6 @@ def find_cheapest_price(ingredient: str, quantity, unit, price_data: dict):
             "product_name": product_name_føtex,
             "price_per_unit": unit_price_føtex,
             "unit": unit_føtex
-        },
-        "rema": {
-            "price": price_to_buy_rema,
-            "amount_to_buy": amount_to_buy_rema,
-            "product_name": product_name_rema,
-            "price_per_unit": unit_price_rema,
-            "unit": unit_rema
         }
     }
 
@@ -787,7 +694,7 @@ def run_algorithm(amount: int = 1, # Amount of recipes needed
 
             return "stk"
 
-        # Checking if the measurement says 2 x 400g
+        # Checking if the measurement says for exampl "2 x 400g"
         position = 0
         while position < len(quantity):
             first_number, first_number_end = read_number_text(quantity, position)

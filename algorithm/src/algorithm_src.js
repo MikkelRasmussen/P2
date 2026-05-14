@@ -391,24 +391,29 @@ function findCheapestPrice(ingredient, quantity, unit, priceData) {
     let unitBilka = null;
 
     for (let i = 0; i < bilka.length; i++) {
-        if (bilka[i].description.toLowerCase().includes(ingredientLower)) {
-            const unitPriceBilkaCheck = bilka[i].unitPrice;
-            const unitBilkaCheck = bilka[i].priceUnit;
+        try {
+            if (bilka[i].description.toLowerCase().includes(ingredientLower)) {
+                const unitPriceBilkaCheck = bilka[i].unitPrice;
+                const unitBilkaCheck = bilka[i].priceUnit;
 
-            const storeQuantity = {
-                price: unitPriceBilkaCheck,
-                unit: unitBilkaCheck,
-            };
+                const storeQuantity = {
+                    price: unitPriceBilkaCheck,
+                    unit: unitBilkaCheck,
+                };
 
-            const [priceToBuyBilkaCheck, amountToBuyBilkaCheck] = calculateBuyPrice(recipeQuantity, storeQuantity, bilka[i]);
+                const [priceToBuyBilkaCheck, amountToBuyBilkaCheck] = calculateBuyPrice(recipeQuantity, storeQuantity, bilka[i]);
 
-            if (priceToBuyBilkaCheck < priceToBuyBilka) {
-                priceToBuyBilka = priceToBuyBilkaCheck;
-                amountToBuyBilka = amountToBuyBilkaCheck;
-                unitPriceBilka = unitPriceBilkaCheck;
-                unitBilka = unitBilkaCheck;
-                productNameBilka = bilka[i].description;
+                if (priceToBuyBilkaCheck < priceToBuyBilka) {
+                    priceToBuyBilka = priceToBuyBilkaCheck;
+                    amountToBuyBilka = amountToBuyBilkaCheck;
+                    unitPriceBilka = unitPriceBilkaCheck;
+                    unitBilka = unitBilkaCheck;
+                    productNameBilka = bilka[i].description;
+                }
             }
+        }
+        catch {
+            continue;
         }
     }
 
@@ -420,24 +425,29 @@ function findCheapestPrice(ingredient, quantity, unit, priceData) {
     let unitNetto = null;
 
     for (let i = 0; i < netto.length; i++) {
-        if (netto[i].description.toLowerCase().includes(ingredientLower)) {
-            const unitPriceNettoCheck = netto[i].unitPrice;
-            const unitNettoCheck = netto[i].priceUnit;
+        try {
+            if (netto[i].description.toLowerCase().includes(ingredientLower)) {
+                const unitPriceNettoCheck = netto[i].unitPrice;
+                const unitNettoCheck = netto[i].priceUnit;
 
-            const storeQuantity = {
-                price: unitPriceNettoCheck,
-                unit: unitNettoCheck,
-            };
+                const storeQuantity = {
+                    price: unitPriceNettoCheck,
+                    unit: unitNettoCheck,
+                };
 
-            const [priceToBuyNettoCheck, amountToBuyNettoCheck] = calculateBuyPrice(recipeQuantity, storeQuantity, netto[i]);
+                const [priceToBuyNettoCheck, amountToBuyNettoCheck] = calculateBuyPrice(recipeQuantity, storeQuantity, netto[i]);
 
-            if (priceToBuyNettoCheck < priceToBuyNetto) {
-                priceToBuyNetto = priceToBuyNettoCheck;
-                amountToBuyNetto = amountToBuyNettoCheck;
-                unitPriceNetto = unitPriceNettoCheck;
-                unitNetto = unitNettoCheck;
-                productNameNetto = netto[i].description;
+                if (priceToBuyNettoCheck < priceToBuyNetto) {
+                    priceToBuyNetto = priceToBuyNettoCheck;
+                    amountToBuyNetto = amountToBuyNettoCheck;
+                    unitPriceNetto = unitPriceNettoCheck;
+                    unitNetto = unitNettoCheck;
+                    productNameNetto = netto[i].description;
+                }
             }
+        }
+        catch {
+            continue;
         }
     }
 
@@ -449,24 +459,29 @@ function findCheapestPrice(ingredient, quantity, unit, priceData) {
     let unitFotex = null;
 
     for (let i = 0; i < fotex.length; i++) {
-        if (fotex[i].description.toLowerCase().includes(ingredientLower)) {
-            const unitPriceFotexCheck = fotex[i].unitPrice;
-            const unitFotexCheck = fotex[i].priceUnit;
+        try {
+            if (fotex[i].description.toLowerCase().includes(ingredientLower)) {
+                const unitPriceFotexCheck = fotex[i].unitPrice;
+                const unitFotexCheck = fotex[i].priceUnit;
 
-            const storeQuantity = {
-                price: unitPriceFotexCheck,
-                unit: unitFotexCheck,
-            };
+                const storeQuantity = {
+                    price: unitPriceFotexCheck,
+                    unit: unitFotexCheck,
+                };
 
-            const [priceToBuyFotexCheck, amountToBuyFotexCheck] = calculateBuyPrice(recipeQuantity, storeQuantity, fotex[i]);
+                const [priceToBuyFotexCheck, amountToBuyFotexCheck] = calculateBuyPrice(recipeQuantity, storeQuantity, fotex[i]);
 
-            if (priceToBuyFotexCheck < priceToBuyFotex) {
-                priceToBuyFotex = priceToBuyFotexCheck;
-                amountToBuyFotex = amountToBuyFotexCheck;
-                unitPriceFotex = unitPriceFotexCheck;
-                unitFotex = unitFotexCheck;
-                productNameFotex = fotex[i].description;
+                if (priceToBuyFotexCheck < priceToBuyFotex) {
+                    priceToBuyFotex = priceToBuyFotexCheck;
+                    amountToBuyFotex = amountToBuyFotexCheck;
+                    unitPriceFotex = unitPriceFotexCheck;
+                    unitFotex = unitFotexCheck;
+                    productNameFotex = fotex[i].description;
+                }
             }
+        }
+        catch {
+            continue;
         }
     }
 

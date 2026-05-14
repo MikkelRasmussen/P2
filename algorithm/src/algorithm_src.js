@@ -352,30 +352,6 @@ function calculateBuyPrice(recipe, store, currentItem) {
         }
     }
 
-    // Fallback calculation using unit price instad
-    if (resultingPrice === 999999) {
-        if (recipeUnit === storeUnit) {
-            resultingPrice = storePrice * recipeQuantity;
-            amountToBuy = Math.ceil(recipeQuantity);
-
-        } else if (weightUnits.includes(recipeUnit) && storeUnit in weightValues) {
-            const recipeInG = recipeQuantity * weightValues[recipeUnit];
-            const storeInG = weightValues[storeUnit];
-            resultingPrice = storePrice * (recipeInG / storeInG);
-            amountToBuy = 1;
-
-        } else if (volumeUnits.includes(recipeUnit) && storeUnit in volumeValues) {
-            const recipeInMl = recipeQuantity * volumeValues[recipeUnit];
-            const storeInMl = volumeValues[storeUnit];
-            resultingPrice = storePrice * (recipeInMl / storeInMl);
-            amountToBuy = 1;
-
-        } else if (recipeUnit === "stk" && storeUnit === "stk") {
-            resultingPrice = storePrice * recipeQuantity;
-            amountToBuy = Math.ceil(recipeQuantity);
-        }
-    }
-
     // Rounding to 2 decimals and returning the result
     if (resultingPrice !== 999999) {
         resultingPrice = Math.round(resultingPrice * 100) / 100;

@@ -21,27 +21,36 @@ function GetTimeStamp() {
     };
 }
 
-console.log(FormatContentUnitFromString("1 bæger"));
 
 const ollamaUrl = "https://fax-evaluating-compilation-favorites.trycloudflare.com"; "http://127.0.0.1:11434";
 const ingrediantEmbeddings = [];
 
 module.exports = class SQLHandler {
+    get connected() {
+        return this.#_connected;
+    }
+    #_connected = false;
     #client;
-    async Connect(host, user, password, port, db) {
+    async Connect(host, user, password, port, db, ssl = true) {
         var conString = `postgres://${user}:${password}@${host}:${port}/${db}?ssl=false`;
-        this.#client = new pg.Client({
+        var clientOption = {
             user: user,
             password: password,
             host: host,
             database: db,
             port: port,
-            ssl: { rejectUnauthorized: false },
-        });
+        }
+        var sslOption = {
+            ssl: { rejectUnauthorized: false }
+        }
+        var options = (ssl ? { ...sslOption, ...clientOption } : { ...clientOption });
+        this.#client = new pg.Client(options);
 
         try {
             await this.#client.connect();
-            console.log("Connected to SQL Database!")
+            if (!process.env.NODE_TEST_CONTEXT)
+                console.log("Connected to SQL Database!")
+            this.#_connected = true;
 
 
             this.#client.on("error", (err) => {
@@ -52,17 +61,29 @@ module.exports = class SQLHandler {
                 console.log(msg.payload) // bar!
             });
             this.#client.on("end", () => {
-                console.warn("Client disconnected!");
+                if (!process.env.NODE_TEST_CONTEXT)
+                    console.warn("Client disconnected!");
             })
 
         } catch (error) {
+            this.#_connected = false;
+            if (process.env.NODE_TEST_CONTEXT)
+                throw error;
             console.error("Could not connect to SQL Database!");
             console.error(error);
+            throw error;
         }
+        return true;
     }
     async Disconnect() {
-        await this.#client.end();
-        console.log("Client disconnected!");
+        try {
+            await this.#client.end();
+            if (!process.env.NODE_TEST_CONTEXT)
+                console.log("Client disconnected!");
+            return true;
+        } catch (error) {
+            throw error;
+        }
     }
     /**
      * Sends a SQL query to the SQL database and returns a table of data.
@@ -74,8 +95,10 @@ module.exports = class SQLHandler {
             const result = await this.#client.query(query);
             return Array.from(result.rows);
         } catch (error) {
-            console.error("Could not query!");
-            console.error(error);
+            if (!process.env.NODE_TEST_CONTEXT) {
+                console.error("Could not query!");
+                console.error(error);
+            }
             return undefined;
         }
     }
@@ -590,13 +613,45 @@ module.exports = class SQLHandler {
             recipes[e[0]].totalWMod = recipes[e[0]].total / Math.min(1, (recipes[e[0]].ingMeet / recipes[e[0]].ingNeed));
 
         });
-        // recipes.forEach(e => {
-        //     console.error(e)
-        //     e.forEach(f => {
-        //         console.log(f.price);
-        //     });
-        // })
+
         console.log(recipes);
+    }
+
+    async GetCompletedRecipes() {
+        const getInfoCmd = fs.readFileSync("./server/SQLHandler/SQLCmdTexts/GetFoodInfo.sql", 'utf8');
+        const getMaxIngCmd = fs.readFileSync("./server/SQLHandler/SQLCmdTexts/GetRecipeMaxIng.sql", 'utf8');
+        const answer = await this.Query(getInfoCmd);
+        const maxIng = await this.Query(getMaxIngCmd);
+        const ingList = [];
+        await this.Query(`SELECT id, recipe, ingredient, measurement FROM "Ingredients"`).then(e => e.forEach(f => {
+            if (ingList[f.recipe] === undefined)
+                ingList[f.recipe] = [];
+            ingList[f.recipe].push(f);
+        }));
+        const maxIngMap = [];
+        maxIng.forEach(e => maxIngMap[e.recipe] = parseFloat(e.count));
+        const recipes = [];
+        answer.forEach(e => {
+            // console.log(e.recipe);
+            if (recipes[e.recipe] === undefined)
+                recipes[e.recipe] = { ing: [], missing: ingList[e.recipe], ingMeet: 0, ingNeed: maxIngMap[e.recipe] };
+            const r = recipes[e.recipe];
+            if (r.ing[e.ingredient] === undefined) {
+                r.ing[e.ingredient] = [];
+            }
+            r.ing[e.ingredient].push(e);
+        });
+        Object.entries(recipes).forEach(e => {
+            const ing = Object.entries(e[1].ing);
+            ing.forEach(f => {
+                recipes[e[0]].ingMeet++;
+            });
+            recipes[e[0]].missing = recipes[e[0]].missing.filter(f => ing.some(g => g[1][0].id !== f.id))
+        });
+        const values = Object.entries(recipes)
+            .map(e => { return { recipe: e[0], ...e[1] } })
+            .filter(e => e.ingMeet >= e.ingNeed - 2);
+        return values;
     }
 
     async #InsureRecipeDatabase() {

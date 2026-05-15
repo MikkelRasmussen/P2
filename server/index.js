@@ -235,7 +235,7 @@ const sqlHandler = new sql();
 
 const sqlTask = () => new Promise(async (res, rej) => {
   console.log(process.cwd());
-  await sqlHandler.Connect("localhost", "postgres", "Post2025", 5432);
+  if (!await sqlHandler.Connect("localhost", "postgres", "Post2025", 5432, 'FoodDB', false).catch(e => false)) return;
 
   //Import and embed recipes and determine ingredients
   const couldImport = await sqlHandler.ImportRecipes();

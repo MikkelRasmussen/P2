@@ -2,9 +2,9 @@
 
 // ------------------ PARAMETER DASHBOARD ------------------
 
-const parameterAmountOfRecipes = 3; // Amount of recipes to recommend
-const parameterBudgetMinimum = 50; // Minimum budget
-const parameterBudgetMaximum = 75; // Maximum budget
+const parameterAmountOfRecipes = 10; // Amount of recipes to recommend
+const parameterBudgetMinimum = 0; // Minimum budget
+const parameterBudgetMaximum = 150; // Maximum budget
 const parameterMemoryScore = {}; // Memory score to personalise recommendations for the user
 
 // ---------------------------------------------------------
@@ -360,6 +360,70 @@ function calculateBuyPrice(recipe, store, currentItem) {
     return [resultingPrice, amountToBuy];
 }
 
+// Function used to improve word matching in findCheapestPrice
+function isBadMatch(ingredient, productName) {
+    ingredient = ingredient.toLowerCase();
+    productName = productName.toLowerCase();
+
+    if (ingredient === "mælk" && productName.includes("kakao")) {
+        return true;
+    }
+
+    if (ingredient === "mælk" && productName.includes("kokos")) {
+        return true;
+    }
+
+    if (ingredient === "sukker" && productName.includes("sukkerfri")) {
+        return true;
+    }
+
+    if (ingredient === "sukker" && productName.includes("u. tilsat sukker")) {
+        return true;
+    }
+
+    if (ingredient === "sukker" && productName.includes("uden tilsat sukker")) {
+        return true;
+    }
+
+    if (ingredient === "sukker" && productName.includes("drik")) {
+        return true;
+    }
+
+    if (ingredient === "sukker" && productName.includes("yoghurt")) {
+        return true;
+    }
+
+    if (ingredient === "chokolade" && productName.includes("proteindrik")) {
+        return true;
+    }
+
+    if (ingredient === "chokolade" && productName.includes("kiks")) {
+        return true;
+    }
+
+    if (ingredient === "chokolade" && productName.includes("müslibar")) {
+        return true;
+    }
+
+    if (ingredient === "chokolade" && productName.includes("bar")) {
+        return true;
+    }
+
+    if (ingredient === "løg" && productName.includes("forårsløg")) {
+        return true;
+    }
+
+    if (ingredient === "peberfrugt" && productName.includes("oliven")) {
+        return true;
+    }
+
+    if (ingredient === "pasta" && productName.includes("karrypasta")) {
+        return true;
+    }
+
+    return false;
+}
+
 // Function to determine the cheapest price from the cheapest store
 function findCheapestPrice(ingredient, quantity, unit, priceData) {
     let bilka;
@@ -392,7 +456,7 @@ function findCheapestPrice(ingredient, quantity, unit, priceData) {
 
     for (let i = 0; i < bilka.length; i++) {
         try {
-            if (bilka[i].description.toLowerCase().includes(ingredientLower)) {
+            if (bilka[i].description.toLowerCase().includes(ingredientLower) && !isBadMatch(ingredientLower, bilka[i].description)) {
                 const unitPriceBilkaCheck = bilka[i].unitPrice;
                 const unitBilkaCheck = bilka[i].priceUnit;
 
@@ -426,7 +490,7 @@ function findCheapestPrice(ingredient, quantity, unit, priceData) {
 
     for (let i = 0; i < netto.length; i++) {
         try {
-            if (netto[i].description.toLowerCase().includes(ingredientLower)) {
+            if (netto[i].description.toLowerCase().includes(ingredientLower) && !isBadMatch(ingredientLower, netto[i].description)) {
                 const unitPriceNettoCheck = netto[i].unitPrice;
                 const unitNettoCheck = netto[i].priceUnit;
 
@@ -460,7 +524,7 @@ function findCheapestPrice(ingredient, quantity, unit, priceData) {
 
     for (let i = 0; i < fotex.length; i++) {
         try {
-            if (fotex[i].description.toLowerCase().includes(ingredientLower)) {
+            if (fotex[i].description.toLowerCase().includes(ingredientLower) && !isBadMatch(ingredientLower, fotex[i].description)) {
                 const unitPriceFotexCheck = fotex[i].unitPrice;
                 const unitFotexCheck = fotex[i].priceUnit;
 
@@ -811,6 +875,7 @@ function runAlgorithm(amount = 1, budgetMin = 0, budgetMax = 9999, memoryScores 
         let cheapestCandidatePrice = 999999;
         let cheapestCandidateScore = 999999;
         let cheapestCandidateName = null;
+        let cheapestCandidateId = null;
         let cheapestCandidateStores = null;
 
         // Iterate through all recipes
@@ -819,6 +884,7 @@ function runAlgorithm(amount = 1, budgetMin = 0, budgetMax = 9999, memoryScores 
 
             for (const recipe of meals) {
                 const name = recipe.strMeal;
+                const recipeID = recipe.idMeal;
 
                 if (name in results) {
                     continue;
@@ -941,6 +1007,7 @@ function runAlgorithm(amount = 1, budgetMin = 0, budgetMax = 9999, memoryScores 
                         cheapestCandidatePrice = totalPrice;
                         cheapestCandidateScore = rankingPrice;
                         cheapestCandidateName = name;
+                        cheapestCandidateId = recipeID;
                         cheapestCandidateStores = recipePrices;
                     }
                 }
@@ -950,6 +1017,7 @@ function runAlgorithm(amount = 1, budgetMin = 0, budgetMax = 9999, memoryScores 
         // Add cheapest recipe to results
         if (cheapestCandidateName) {
             results[cheapestCandidateName] = {
+                id: cheapestCandidateId,
                 price: cheapestCandidatePrice,
                 score: cheapestCandidateScore,
                 stores: cheapestCandidateStores,

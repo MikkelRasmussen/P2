@@ -1,11 +1,23 @@
+const express = require('express');
+const cors = require('cors');
+require('dotenv').config();
 
+const pool = require('./db');
+const app = express();
+
+app.use(cors({
+    origin: "http://localhost:5173"
+}));
+
+app.use(express.json());
 
 // ------------------ PARAMETER DASHBOARD ------------------
 
-const parameterAmountOfRecipes = 10; // Amount of recipes to recommend
+const parameterAmountOfRecipes = 5; // Amount of recipes to recommend
 const parameterBudgetMinimum = 0; // Minimum budget
-const parameterBudgetMaximum = 150; // Maximum budget
+const parameterBudgetMaximum = 9999; // Maximum budget
 const parameterMemoryScore = {}; // Memory score to personalise recommendations for the user
+const parameterExcludes = [];
 
 // ---------------------------------------------------------
 
@@ -14,20 +26,18 @@ const parameterMemoryScore = {}; // Memory score to personalise recommendations 
 
 
 
-
-const fs = require("fs");
+const fs = require("fs")
 const path = require("path");
+
 
 // File paths for databases
 const RECIPES_FILE_PATH = path.join("algorithm", "data", "recipes.json");
 
-const INGREDIENTS_MAPPING_FILE_PATH = path.join("algorithm", "data","mapping_ingredienser.json");
+const INGREDIENTS_MAPPING_FILE_PATH = path.join("algorithm", "data", "mapping_ingredienser.json");
 
 const BILKA_PRICES_FILE_PATH = path.join("algorithm", "data", "bilka_prices.json");
 const NETTO_PRICES_FILE_PATH = path.join("algorithm", "data", "netto_prices.json");
 const FOTEX_PRICES_FILE_PATH = path.join("algorithm", "data", "føtex_prices.json");
-
-
 
 function fetchData() {
 
@@ -61,6 +71,16 @@ function fetchData() {
     }
 }
 
+async function fetchApiRecipeData() {
+    try {
+        const recipes = await fetch("https://localhost:3000/recipes").then(e => e.json());
+        return data;
+    }
+    catch {
+        return undefined;
+    }
+}
+
 
 function printResults(results) {
     let iteration = 1;
@@ -75,7 +95,7 @@ function printResults(results) {
 
     console.log("\n==================== RESULTS ====================");
     console.log(`Recipes not priced: ${notPricedCount}`);
-    
+
     for (const [name, data] of Object.entries(results)) {
         if (name === "notPricedCount") {
             continue;
@@ -204,7 +224,7 @@ function calculateBuyPrice(recipe, store, currentItem) {
     const weightUnits = ["mg", "g", "gram", "grams", "kg", "kilogram", "kilograms", "pound", "pounds", "lb", "lbs", "oz", "ounce", "ounces",];
     const miscUnits = ["bag", "bags", "handful", "handfuls", "handfull", "handfulls", "bottle", "bottles", "jar", "jars", "pot", "pots", "packet", "packets", "pack", "package", "packages", "shot"];
     const abstractUnits = ["slices", "slice", "sliced", "cans", "can", "tin", "piece", "pieces", "part", "parts", "bunch", "bunches", "clove", "cloves", "head", "heads", "leaf", "leaves", "sprig", "sprigs", "stalk", "stalks", "stick", "sticks", "bulb", "bulbs", "knob", "knobs", "pod", "pods", "large", "medium", "small", "whole", "pinch", "pinches", "dash", "drop", "drops", "drizzle", "splash", "fillet", "fillets", "rasher", "rashers", "yolk", "yolks", "tub", "tubs", "stk"];
-    const ignoredUnits = [ "as required", "beaten", "boiled", "boneless", "chopped", "diced", "finely chopped", "finely diced", "finely sliced", "grated", "halved", "mashed", "minced", "quartered", "shredded", "skinned", "to serve", "to taste"];
+    const ignoredUnits = ["as required", "beaten", "boiled", "boneless", "chopped", "diced", "finely chopped", "finely diced", "finely sliced", "grated", "halved", "mashed", "minced", "quartered", "shredded", "skinned", "to serve", "to taste"];
 
     // Extracting the data from the recipe and store data
     let recipeQuantity = recipe.quantity;
@@ -365,51 +385,41 @@ function isBadMatch(ingredient, productName) {
     ingredient = ingredient.toLowerCase();
     productName = productName.toLowerCase();
 
-    if (ingredient === "mælk" && productName.includes("kakao")) {
+    if (ingredient === "mælk" && (
+        productName.includes("kakao") ||
+        productName.includes("chokolade") ||
+        productName.includes("kokos"))) {
         return true;
     }
 
-    if (ingredient === "mælk" && productName.includes("kokos")) {
+    if (ingredient === "sukker" && (
+        productName.includes("sukkerfri") ||
+        productName.includes("tilsat") ||
+        productName.includes("drik") ||
+        productName.includes("yoghurt"))) {
         return true;
     }
 
-    if (ingredient === "sukker" && productName.includes("sukkerfri")) {
+    if (ingredient === "chokolade" && (
+        productName.includes("drik") ||
+        productName.includes("m.") ||
+        productName.includes("med") ||
+        productName.includes("kiks") ||
+        productName.includes("müslibar") ||
+        productName.includes("bar") ||
+        productName.includes("granola") ||
+        productName.includes("cookie") ||
+        productName.includes("mousse") ||
+        productName.includes("karamel") ||
+        productName.includes("pålæg") ||
+        productName.includes("kage") ||
+        productName.includes("bland"))) {
         return true;
     }
 
-    if (ingredient === "sukker" && productName.includes("u. tilsat sukker")) {
-        return true;
-    }
-
-    if (ingredient === "sukker" && productName.includes("uden tilsat sukker")) {
-        return true;
-    }
-
-    if (ingredient === "sukker" && productName.includes("drik")) {
-        return true;
-    }
-
-    if (ingredient === "sukker" && productName.includes("yoghurt")) {
-        return true;
-    }
-
-    if (ingredient === "chokolade" && productName.includes("proteindrik")) {
-        return true;
-    }
-
-    if (ingredient === "chokolade" && productName.includes("kiks")) {
-        return true;
-    }
-
-    if (ingredient === "chokolade" && productName.includes("müslibar")) {
-        return true;
-    }
-
-    if (ingredient === "chokolade" && productName.includes("bar")) {
-        return true;
-    }
-
-    if (ingredient === "løg" && productName.includes("forårsløg")) {
+    if (ingredient === "løg" && (
+        productName.includes("forår") ||
+        productName.includes("hvid"))) {
         return true;
     }
 
@@ -417,7 +427,7 @@ function isBadMatch(ingredient, productName) {
         return true;
     }
 
-    if (ingredient === "pasta" && productName.includes("karrypasta")) {
+    if (ingredient === "pasta" && productName.includes("karry")) {
         return true;
     }
 
@@ -456,7 +466,7 @@ function findCheapestPrice(ingredient, quantity, unit, priceData) {
 
     for (let i = 0; i < bilka.length; i++) {
         try {
-            if (bilka[i].description.toLowerCase().includes(ingredientLower) && !isBadMatch(ingredientLower, bilka[i].description)) {
+            if (bilka[i].name.toLowerCase().includes(ingredientLower) && !isBadMatch(ingredientLower, bilka[i].name)) {
                 const unitPriceBilkaCheck = bilka[i].unitPrice;
                 const unitBilkaCheck = bilka[i].priceUnit;
 
@@ -472,7 +482,7 @@ function findCheapestPrice(ingredient, quantity, unit, priceData) {
                     amountToBuyBilka = amountToBuyBilkaCheck;
                     unitPriceBilka = unitPriceBilkaCheck;
                     unitBilka = unitBilkaCheck;
-                    productNameBilka = bilka[i].description;
+                    productNameBilka = bilka[i].name;
                 }
             }
         }
@@ -490,7 +500,7 @@ function findCheapestPrice(ingredient, quantity, unit, priceData) {
 
     for (let i = 0; i < netto.length; i++) {
         try {
-            if (netto[i].description.toLowerCase().includes(ingredientLower) && !isBadMatch(ingredientLower, netto[i].description)) {
+            if (netto[i].name.toLowerCase().includes(ingredientLower) && !isBadMatch(ingredientLower, netto[i].name)) {
                 const unitPriceNettoCheck = netto[i].unitPrice;
                 const unitNettoCheck = netto[i].priceUnit;
 
@@ -506,7 +516,7 @@ function findCheapestPrice(ingredient, quantity, unit, priceData) {
                     amountToBuyNetto = amountToBuyNettoCheck;
                     unitPriceNetto = unitPriceNettoCheck;
                     unitNetto = unitNettoCheck;
-                    productNameNetto = netto[i].description;
+                    productNameNetto = netto[i].name;
                 }
             }
         }
@@ -524,7 +534,7 @@ function findCheapestPrice(ingredient, quantity, unit, priceData) {
 
     for (let i = 0; i < fotex.length; i++) {
         try {
-            if (fotex[i].description.toLowerCase().includes(ingredientLower) && !isBadMatch(ingredientLower, fotex[i].description)) {
+            if (fotex[i].name.toLowerCase().includes(ingredientLower) && !isBadMatch(ingredientLower, fotex[i].name)) {
                 const unitPriceFotexCheck = fotex[i].unitPrice;
                 const unitFotexCheck = fotex[i].priceUnit;
 
@@ -540,7 +550,7 @@ function findCheapestPrice(ingredient, quantity, unit, priceData) {
                     amountToBuyFotex = amountToBuyFotexCheck;
                     unitPriceFotex = unitPriceFotexCheck;
                     unitFotex = unitFotexCheck;
-                    productNameFotex = fotex[i].description;
+                    productNameFotex = fotex[i].name;
                 }
             }
         }
@@ -608,16 +618,249 @@ function findCheapestPrice(ingredient, quantity, unit, priceData) {
 }
 
 
+// Internal helper function to get memory score
+function getMemoryScore(name) {
+    try {
+        if (name in memoryScores) {
+            return Number(memoryScores[name]);
+        } else if (name.toLowerCase() in memoryScores) {
+            return Number(memoryScores[name.toLowerCase()]);
+        } else {
+            return 0;
+        }
+    }
+    catch (error) {
+        return 0;
+    }
+}
+
+// Internal helper function to parse quantities of an ingredient of the recipe
+function parseQuantity(quantity) {
+    quantity = String(quantity || "").trim().toLowerCase();
+
+    // Changing fractions to simple text
+    const fractions = {
+        "\u00bd": " 1/2",
+        "\u00bc": " 1/4",
+        "\u00be": " 3/4",
+        "\u2153": " 1/3",
+        "\u2154": " 2/3",
+        "\u215b": " 1/8",
+    };
+
+    // Replacing characters such as ½ to 1/2
+    for (const fraction in fractions) {
+        quantity = quantity.replaceAll(fraction, fractions[fraction]);
+    }
+
+    quantity = quantity.replaceAll(",", ".");
+    quantity = quantity.replaceAll("-", " ");
+    quantity = quantity.replaceAll("(", " ");
+    quantity = quantity.replaceAll(")", " ");
+
+    // Internal helper function to read numbers
+    function readNumber(number) {
+        number = number.trim();
+
+        // For numbers like "1 1/2" which becomes 1.5
+        if (number.includes(" ") && number.includes("/")) {
+            const parts = number.split(/\s+/); // Using regex to split and remove whitespace
+            const wholeNumber = Number(parts[0]);
+            const fractionParts = parts[1].split("/");
+
+            return wholeNumber + (Number(fractionParts[0]) / Number(fractionParts[1]));
+        }
+
+        // For numbers like "1/2" which becomes 0.5
+        if (number.includes("/")) {
+            const fractionParts = number.split("/");
+
+            return Number(fractionParts[0]) / Number(fractionParts[1]);
+        }
+
+        return Number(number);
+    }
+
+    function isDigit(character) {
+        return character >= "0" && character <= "9";
+    }
+
+    function readNumberText(text, startPosition) {
+        if (startPosition >= text.length || !isDigit(text[startPosition])) {
+            return ["", startPosition];
+        }
+
+        const start = startPosition;
+        let position = startPosition;
+
+        while (position < text.length && isDigit(text[position])) {
+            position++;
+        }
+
+        const afterWholeNumber = position;
+
+        // Mixed fraction number, for example 1 1/2
+        let spacePosition = afterWholeNumber;
+
+        while (spacePosition < text.length && text[spacePosition] === " ") {
+            spacePosition++;
+        }
+
+        let fractionPosition = spacePosition;
+
+        while (fractionPosition < text.length && isDigit(text[fractionPosition])) {
+            fractionPosition++;
+        }
+
+        if (spacePosition > afterWholeNumber && fractionPosition < text.length && text[fractionPosition] === "/") {
+            fractionPosition++;
+            let fractionEnd = fractionPosition;
+
+            while (fractionEnd < text.length && isDigit(text[fractionEnd])) {
+                fractionEnd++;
+            }
+
+            if (fractionEnd > fractionPosition) {
+                return [text.slice(start, fractionEnd), fractionEnd];
+            }
+        }
+
+        // Fraction
+        if (position < text.length && text[position] === "/") {
+            position++;
+            let fractionEnd = position;
+
+            while (fractionEnd < text.length && isDigit(text[fractionEnd])) {
+                fractionEnd++;
+            }
+
+            if (fractionEnd > position) {
+                return [text.slice(start, fractionEnd), fractionEnd];
+            }
+        }
+
+        // Decimal number
+        if (position + 1 < text.length && text[position] === "." && isDigit(text[position + 1])) {
+            position++;
+
+            while (position < text.length && isDigit(text[position])) {
+                position++;
+            }
+        }
+
+        return [text.slice(start, position), position];
+    }
+
+    function readUnitText(text, startPosition) {
+        let position = startPosition;
+
+        while (position < text.length && text[position] === " ") {
+            position++;
+        }
+
+        let unit = "";
+
+        while (position < text.length && text[position] >= "a" && text[position] <= "z") {
+            unit += text[position];
+            position++;
+        }
+
+        if (unit) {
+            return unit;
+        }
+
+        return "stk";
+    }
+
+    // Checking if the measurement says for exampl "2 x 400g"
+    let position = 0;
+
+    while (position < quantity.length) {
+        const [firstNumber, firstNumberEnd] = readNumberText(quantity, position);
+
+        if (firstNumber) {
+            let xPosition = firstNumberEnd;
+
+            while (xPosition < quantity.length && quantity[xPosition] === " ") {
+                xPosition++;
+            }
+
+            if (xPosition < quantity.length && quantity[xPosition] === "x") {
+                let secondNumberStart = xPosition + 1;
+
+                while (secondNumberStart < quantity.length && quantity[secondNumberStart] === " ") {
+                    secondNumberStart++;
+                }
+
+                const [secondNumber, secondNumberEnd] = readNumberText(quantity, secondNumberStart);
+
+                if (secondNumber) {
+                    const amount = readNumber(firstNumber) * readNumber(secondNumber);
+                    const unit = readUnitText(quantity, secondNumberEnd);
+
+                    return [amount, unit];
+                }
+            }
+
+            position = firstNumberEnd;
+        }
+        else {
+            position++;
+        }
+    }
+
+    // Reading the first normal number, for example "500g" or "1.5 kg"
+    position = 0;
+
+    while (position < quantity.length) {
+        const [number, numberEnd] = readNumberText(quantity, position);
+
+        if (number) {
+            const amount = readNumber(number);
+            const unit = readUnitText(quantity, numberEnd);
+
+            return [amount, unit];
+        }
+
+        position++;
+    }
+
+    // If there is no number, it is probably one piece
+    const words = quantity.split(/\s+/).filter(word => word !== "");
+
+    if (words.length > 0) {
+        return [1, words[0]];
+    }
+
+    return [1, "stk"];
+}
 
 
 // --------  THE ALGORITHM --------
 
-function runAlgorithm(amount = 1, budgetMin = 0, budgetMax = 9999, memoryScores = {}) {
+async function runAlgorithm(excludes = [], amount = 1, budgetMin = 0, budgetMax = 9999, memoryScores = {}) {
+
     // Initialising data for the algorithm
     const data = fetchData();
-    const recipes = data.recipes;
+    //const recipes = data.recipes;
     const ingredientsMapping = data.ingredientsMapping;
     const priceData = data.prices;
+
+    
+    var recipes = [];
+    try {
+        const { rows } = await pool.query(`
+            SELECT DISTINCT "Ingredients".recipe, "Ingredients".ingredient, "Ingredients".measurement, "Food"."name", "Food".price, "Food".contents, "Food".contentsunit, "Food".store, "IngredientMatches"."match"
+            FROM "IngredientMatches" 
+            INNER JOIN "Ingredients" ON "IngredientMatches"."Ingredient" = "Ingredients".id
+            INNER JOIN "Food" ON "IngredientMatches"."Food" = "Food".id
+        `);
+        recipes = rows;
+    } catch (error) {
+        console.error("DB ERROR:", error);
+        return undefined
+    }
+    console.dir(recipes)
 
     // Ingredients to skip
     const basicIngredients = [
@@ -645,228 +888,6 @@ function runAlgorithm(amount = 1, budgetMin = 0, budgetMax = 9999, memoryScores 
         "vegetable stock", "vegetable stock cube", "bouillon cubes",
     ];
 
-    // Internal helper function to get memory score
-    function getMemoryScore(name) {
-        try {
-            if (name in memoryScores) {
-                return Number(memoryScores[name]);
-            } else if (name.toLowerCase() in memoryScores) {
-                return Number(memoryScores[name.toLowerCase()]);
-            } else {
-                return 1;
-            }
-        }
-        catch (error) {
-            return 1;
-        }
-    }
-
-    // Internal helper function to parse quantities of an ingredient of the recipe
-    function parseQuantity(quantity) {
-        quantity = String(quantity || "").trim().toLowerCase();
-
-        // Changing fractions to simple text
-        const fractions = {
-            "\u00bd": " 1/2",
-            "\u00bc": " 1/4",
-            "\u00be": " 3/4",
-            "\u2153": " 1/3",
-            "\u2154": " 2/3",
-            "\u215b": " 1/8",
-        };
-
-        // Replacing characters such as ½ to 1/2
-        for (const fraction in fractions) {
-            quantity = quantity.replaceAll(fraction, fractions[fraction]);
-        }
-
-        quantity = quantity.replaceAll(",", ".");
-        quantity = quantity.replaceAll("-", " ");
-        quantity = quantity.replaceAll("(", " ");
-        quantity = quantity.replaceAll(")", " ");
-
-        // Internal helper function to read numbers
-        function readNumber(number) {
-            number = number.trim();
-
-            // For numbers like "1 1/2" which becomes 1.5
-            if (number.includes(" ") && number.includes("/")) {
-                const parts = number.split(/\s+/); // Using regex to split and remove whitespace
-                const wholeNumber = Number(parts[0]);
-                const fractionParts = parts[1].split("/");
-
-                return wholeNumber + (Number(fractionParts[0]) / Number(fractionParts[1]));
-            }
-
-            // For numbers like "1/2" which becomes 0.5
-            if (number.includes("/")) {
-                const fractionParts = number.split("/");
-
-                return Number(fractionParts[0]) / Number(fractionParts[1]);
-            }
-
-            return Number(number);
-        }
-
-        function isDigit(character) {
-            return character >= "0" && character <= "9";
-        }
-
-        function readNumberText(text, startPosition) {
-            if (startPosition >= text.length || !isDigit(text[startPosition])) {
-                return ["", startPosition];
-            }
-
-            const start = startPosition;
-            let position = startPosition;
-
-            while (position < text.length && isDigit(text[position])) {
-                position++;
-            }
-
-            const afterWholeNumber = position;
-
-            // Mixed fraction number, for example 1 1/2
-            let spacePosition = afterWholeNumber;
-
-            while (spacePosition < text.length && text[spacePosition] === " ") {
-                spacePosition++;
-            }
-
-            let fractionPosition = spacePosition;
-
-            while (fractionPosition < text.length && isDigit(text[fractionPosition])) {
-                fractionPosition++;
-            }
-
-            if (spacePosition > afterWholeNumber && fractionPosition < text.length && text[fractionPosition] === "/") {
-                fractionPosition++;
-                let fractionEnd = fractionPosition;
-
-                while (fractionEnd < text.length && isDigit(text[fractionEnd])) {
-                    fractionEnd++;
-                }
-
-                if (fractionEnd > fractionPosition) {
-                    return [text.slice(start, fractionEnd), fractionEnd];
-                }
-            }
-
-            // Fraction
-            if (position < text.length && text[position] === "/") {
-                position++;
-                let fractionEnd = position;
-
-                while (fractionEnd < text.length && isDigit(text[fractionEnd])) {
-                    fractionEnd++;
-                }
-
-                if (fractionEnd > position) {
-                    return [text.slice(start, fractionEnd), fractionEnd];
-                }
-            }
-
-            // Decimal number
-            if (position + 1 < text.length && text[position] === "." && isDigit(text[position + 1])) {
-                position++;
-
-                while (position < text.length && isDigit(text[position])) {
-                    position++;
-                }
-            }
-
-            return [text.slice(start, position), position];
-        }
-
-        function readUnitText(text, startPosition) {
-            let position = startPosition;
-
-            while (position < text.length && text[position] === " ") {
-                position++;
-            }
-
-            let unit = "";
-
-            while (position < text.length && text[position] >= "a" && text[position] <= "z") {
-                unit += text[position];
-                position++;
-            }
-
-            if (unit) {
-                return unit;
-            }
-
-            return "stk";
-        }
-
-        // Checking if the measurement says for exampl "2 x 400g"
-        let position = 0;
-
-        while (position < quantity.length) {
-            const [firstNumber, firstNumberEnd] = readNumberText(quantity, position);
-
-            if (firstNumber) {
-                let xPosition = firstNumberEnd;
-
-                while (xPosition < quantity.length && quantity[xPosition] === " ") {
-                    xPosition++;
-                }
-
-                if (xPosition < quantity.length && quantity[xPosition] === "x") {
-                    let secondNumberStart = xPosition + 1;
-
-                    while (secondNumberStart < quantity.length && quantity[secondNumberStart] === " ") {
-                        secondNumberStart++;
-                    }
-
-                    const [secondNumber, secondNumberEnd] = readNumberText(quantity, secondNumberStart);
-
-                    if (secondNumber) {
-                        const amount = readNumber(firstNumber) * readNumber(secondNumber);
-                        const unit = readUnitText(quantity, secondNumberEnd);
-
-                        return [amount, unit];
-                    }
-                }
-
-                position = firstNumberEnd;
-            }
-            else {
-                position++;
-            }
-        }
-
-        // Reading the first normal number, for example "500g" or "1.5 kg"
-        position = 0;
-
-        while (position < quantity.length) {
-            const [number, numberEnd] = readNumberText(quantity, position);
-
-            if (number) {
-                const amount = readNumber(number);
-                const unit = readUnitText(quantity, numberEnd);
-
-                return [amount, unit];
-            }
-
-            position++;
-        }
-
-        // If there is no number, it is probably one piece
-        const words = quantity.split(/\s+/).filter(word => word !== "");
-
-        if (words.length > 0) {
-            return [1, words[0]];
-        }
-
-        return [1, "stk"];
-    }
-
-
-
-
-    // ====== ALGORITHM START ======
-
     const results = {};
     const recipesNotPriced = {};
 
@@ -878,140 +899,134 @@ function runAlgorithm(amount = 1, budgetMin = 0, budgetMax = 9999, memoryScores 
         let cheapestCandidateId = null;
         let cheapestCandidateStores = null;
 
-        // Iterate through all recipes
-        for (const recipeRow of recipes) {
-            const meals = recipeRow.meals || [];
+        for (const recipe of recipes) {
+            const name = recipe.name;
+            const recipeID = recipe.id;
 
-            for (const recipe of meals) {
-                const name = recipe.strMeal;
-                const recipeID = recipe.idMeal;
+            if (excludes.includes(recipeID) || name in results) {
+                continue;
+            }
 
-                if (name in results) {
-                    continue;
+            const ingredientsToValue = [];
+
+            let total_ingredients = 0;
+            for (let n = 1; n < 21; n++) {
+                let ingredient = recipe[`strIngredient${n}`];
+                let measure = recipe[`strMeasure${n}`];
+
+                if (ingredient !== null && ingredient !== undefined) {
+                    ingredient = ingredient.trim();
                 }
 
-                const ingredientsToValue = [];
-
-                for (let n = 1; n < 21; n++) {
-                    let ingredient = recipe[`strIngredient${n}`];
-                    let measure = recipe[`strMeasure${n}`];
-
-                    if (ingredient !== null && ingredient !== undefined) {
-                        ingredient = ingredient.trim();
-                    }
-
-                    if (measure !== null && measure !== undefined) {
-                        measure = measure.trim();
-                    }
-
-                    if (ingredient) {
-                        const normalizedIngredient = ingredient.toLowerCase();
-
-                        if (!basicIngredients.includes(normalizedIngredient)) {
-                            ingredientsToValue.push({
-                                name: ingredient,
-                                measure: measure || "",
-                            });
-                        }
-                    }
+                if (measure !== null && measure !== undefined) {
+                    measure = measure.trim();
                 }
 
-                // Failsafe if there is nothing to price
-                if (ingredientsToValue.length === 0) {
-                    recipesNotPriced[name] = true;
-                    continue;
-                }
-
-                const recipePrices = {};
-                let totalPrice = 0;
-                let rankingPrice = 0;
-                let successBool = true;
-
-                for (const ingredientData of ingredientsToValue) {
-                    const ingredient = ingredientData.name;
-                    const measurement = ingredientData.measure;
-
-                    let quantity;
-                    let unit;
-
-                    try {
-                        [quantity, unit] = parseQuantity(measurement);
-                    } catch (error) {
-                        successBool = false;
-                        break;
-                    }
-
-                    const ingredientDK = ingredientsMapping[ingredient];
-
-                    if (ingredientDK === undefined) {
-                        successBool = false;
-                        break;
-                    }
-
-                    let cheapestPrice;
-                    let store;
-                    let storesData;
-                    let found;
-
-                    try {
-                        [cheapestPrice, store, storesData, found] = findCheapestPrice(
-                            ingredientDK,
-                            quantity,
-                            unit,
-                            priceData
-                        );
-                    } catch (error) {
-                        console.log(`Error finding cheapest price: ${error.message}`);
-                        successBool = false;
-                        break;
-                    }
-
-                    // Failsafe
-                    if (!found || cheapestPrice === null || store === null || storesData === null) {
-                        successBool = false;
-                        break;
-                    }
-
-                    // Get score from previous likes and dislikes
-                    let ingredientScore = getMemoryScore(ingredient);
-
-                    if (ingredientScore === 1) {
-                        ingredientScore = getMemoryScore(ingredientDK);
-                    }
-
-                    // Collect the data in an object and increase the total cost
-                    recipePrices[ingredient] = {
-                        measure: measurement,
-                        store: store,
-                        storesData: storesData,
-                        productName: storesData[store].productName,
-                        amountToBuy: storesData[store].amountToBuy,
-                        price: cheapestPrice,
-                        memoryScore: ingredientScore,
-                    };
-
-                    totalPrice += cheapestPrice;
-                    rankingPrice += cheapestPrice * ingredientScore;
-                }
-
-                if (!successBool) {
-                    recipesNotPriced[name] = true;
-                    continue;
-                }
-
-                // Check if the recipe price is within range of budget
-                if (budgetMin <= totalPrice && totalPrice <= budgetMax) {
-                    candidates[name] = recipePrices;
-
-                    if (rankingPrice < cheapestCandidateScore) {
-                        cheapestCandidatePrice = totalPrice;
-                        cheapestCandidateScore = rankingPrice;
-                        cheapestCandidateName = name;
-                        cheapestCandidateId = recipeID;
-                        cheapestCandidateStores = recipePrices;
+                if (ingredient) {
+                    const normalizedIngredient = ingredient.toLowerCase();
+                    if (!basicIngredients.includes(normalizedIngredient)) {
+                        ingredientsToValue.push({ name: ingredient, measure: measure || "" });
                     }
                 }
             }
+
+            // Failsafe if there is nothing to price
+            if (ingredientsToValue.length < (total_ingredients - 2)) {
+                recipesNotPriced[name] = true;
+                continue;
+            }
+
+            const recipePrices = {};
+            let totalPrice = 0;
+            let rankingPrice = 0;
+            let successBool = true;
+
+            for (const ingredientData of ingredientsToValue) {
+                const ingredient = ingredientData.name;
+                const measurement = ingredientData.measure;
+
+                let quantity;
+                let unit;
+
+                try {
+                    [quantity, unit] = parseQuantity(measurement);
+                } catch (error) {
+                    successBool = false;
+                    break;
+                }
+
+                const ingredientDK = ingredientsMapping[ingredient];
+
+                if (ingredientDK === undefined) {
+                    successBool = false;
+                    break;
+                }
+
+                let cheapestPrice;
+                let store;
+                let storesData;
+                let found;
+
+                try {
+                    [cheapestPrice, store, storesData, found] = findCheapestPrice(
+                        ingredientDK,
+                        quantity,
+                        unit,
+                        priceData
+                    );
+                } catch (error) {
+                    console.log(`Error finding cheapest price: ${error.message}`);
+                    successBool = false;
+                    break;
+                }
+
+
+                // Failsafe
+                if (!found || cheapestPrice === null || store === null || storesData === null) {
+                    successBool = false;
+                    break;
+                }
+
+                // Get score from previous likes and dislikes
+                let ingredientScore = getMemoryScore(ingredient);
+
+                if (ingredientScore === 0) {
+                    ingredientScore = getMemoryScore(ingredientDK);
+                }
+
+                // Collect the data in an object and increase the total cost
+                recipePrices[ingredient] = {
+                    measure: measurement,
+                    store: store,
+                    storesData: storesData,
+                    productName: storesData[store].productName,
+                    amountToBuy: storesData[store].amountToBuy,
+                    price: cheapestPrice,
+                    memoryScore: ingredientScore,
+                };
+
+                totalPrice += cheapestPrice;
+                rankingPrice += cheapestPrice * (1 + ingredientScore);
+            }
+
+            if (!successBool) {
+                recipesNotPriced[name] = true;
+                continue;
+            }
+
+            // Check if the recipe price is within range of budget
+            if (budgetMin <= totalPrice && totalPrice <= budgetMax) {
+                candidates[name] = recipePrices;
+
+                if (rankingPrice < cheapestCandidateScore) {
+                    cheapestCandidatePrice = totalPrice;
+                    cheapestCandidateScore = rankingPrice;
+                    cheapestCandidateName = name;
+                    cheapestCandidateId = recipeID;
+                    cheapestCandidateStores = recipePrices;
+                }
+            }
+            
         }
 
         // Add cheapest recipe to results
@@ -1025,14 +1040,26 @@ function runAlgorithm(amount = 1, budgetMin = 0, budgetMax = 9999, memoryScores 
         }
     }
 
-    // ====== ALGORITHM END ======
-
     const recipesNotPricedArray = Object.keys(recipesNotPriced);
     results.notPricedCount = recipesNotPricedArray.length;
     return results;
 
 }
 
-const results = runAlgorithm(parameterAmountOfRecipes, parameterBudgetMinimum, parameterBudgetMaximum, parameterMemoryScore);
+app.get("/recommend", async (req, res) => {
+    // req.headers
+    const results = await runAlgorithm(parameterExcludes, parameterAmountOfRecipes, parameterBudgetMinimum, parameterBudgetMaximum, parameterMemoryScore);
+    res.json(results);
+})
 
-printResults(results);
+//const results = runAlgorithm(parameterExcludes, parameterAmountOfRecipes, parameterBudgetMinimum, parameterBudgetMaximum, parameterMemoryScore);
+//printResults(results);
+
+
+
+const PORT = 3000;
+app.listen(PORT, async () => {
+    console.log(`Server running on http://localhost:${PORT}`);
+});
+
+fetch(`http://localhost:${PORT}/recommend`).then(data => data.text()).then(e => console.log(e))

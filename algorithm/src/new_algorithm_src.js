@@ -2,8 +2,8 @@
 
 // ----------- PARAMETER DASHBOARD (fake header) -----------
 
-const parameterAmountOfRecipes = 1; // Amount of recipes to recommend
-const parameterBudgetMinimum = 25; // Minimum budget
+const parameterAmountOfRecipes = 2; // Amount of recipes to recommend
+const parameterBudgetMinimum = 75; // Minimum budget
 const parameterBudgetMaximum = 9999; // Maximum budget
 const parameterMemoryScore = {}; // Memory score to personalise recommendations for the user
 const parameterExcludes = [];
@@ -11,13 +11,26 @@ const parameterExcludes = [];
 // --------------------- CODE VARIABLES --------------------
 
 // Amount of ingredients in a recipe allowed to not be priced.
-// Beware: Making it above 0 will affect the "totalPrice" of a recipe, and therefore
-// make not-priced recipes more likely to be recommended.
 const notPricedIngredientsAllowed = 1;
 
 // Minimum matching index allowed for an ingredient.
 // If match is below, it will count as "not priced".
 const MinimumMatchIndex = 0.9;
+
+// Penalty price for ingredients that fails to be priced
+const notPricedPenalty = 15;
+
+// Ingredients to skip, excpected to already have in inventory
+const basicIngredients = [
+    "vand", "kogende vand", "koldt vand",
+    "salt", "havsalt", "peber", "sort peber",
+    "peberkorn", "peber korn", "cayenne",
+    "chili pulver", "chilli pulver", "sukker",
+    "olivenolie", "oliven olie", "solsikkeolie",
+    "solsikke olie", "rapsolie", "raps olie", "olie",
+    "hvedemel", "hvede mel", "paprika", "karry",
+    "oregano", "eddike", "ketchup", "mayonnaise",
+];
 
 // ---------------------------------------------------------
 
@@ -113,32 +126,6 @@ function FormatContentUnit(content, unit) {
     }
 }
 
-// Ingredients to skip
-const basicIngredients = [
-    "water", "boiling water", "cold water",
-    "salt", "sea salt", "kosher salt",
-    "pepper", "black pepper", "peppercorns", "whole black peppercorns",
-    "cayenne pepper", "chili powder", "chilli powder", "hot chilli powder",
-    "red chilli powder", "red pepper flakes",
-    "sugar", "vanilla sugar",
-    "olive oil", "extra virgin olive oil", "vegetable oil",
-    "sunflower oil", "rapeseed oil", "canola oil", "oil",
-    "butter", "unsalted butter", "salted butter", "melted butter",
-    "flour", "plain flour", "all purpose flour", "white flour", "cornstarch",
-    "baking powder", "bicarbonate of soda",
-    "paprika", "smoked paprika", "sweet smoked paprika",
-    "curry powder", "cumin", "ground cumin",
-    "cinnamon", "ground cinnamon", "nutmeg", "ground nutmeg",
-    "oregano", "dried oregano", "basil",
-    "thyme", "rosemary",
-    "allspice", "ground allspice",
-    "vinegar", "mustard", "dijon mustard",
-    "tomato ketchup", "mayonnaise",
-    "chicken stock", "chicken stock cube", "chicken bouillon powder",
-    "beef stock", "beef stock cubes", "beef stock concentrate",
-    "vegetable stock", "vegetable stock cube", "bouillon cubes",
-];
-
 function parsePrice(priceText) {
     return Number(String(priceText).replace("$", "").trim());
 }
@@ -155,12 +142,7 @@ function valuateIngredient(ingredients) {
         return {
             recipeIngredient: ingredientName,
             skipped: true,
-            priced: true,
-            reason: "basic ingredient",
-            price: 0,
-            amountToBuy: 0,
-            store: null,
-            product: null
+            priced: true
         };
     }
 
@@ -192,9 +174,7 @@ function valuateIngredient(ingredients) {
         return {
             recipeIngredient: ingredientName,
             skipped: false,
-            priced: false,
-            reason: "No compatible unit found",
-            variants: ingredients
+            priced: false
         };
     }
 
@@ -214,7 +194,7 @@ function valuateIngredient(ingredients) {
     };
 }
 
-// Helper function to valuate a recipe.
+// Function to valuate a recipe.
 function valuateRecipe(recipeToValuate) {
     recipeToValuate.sort((a, b) =>
         a.recipeIngredient.localeCompare(b.recipeIngredient)
@@ -259,9 +239,9 @@ function valuateRecipe(recipeToValuate) {
     return valuatedRecipe;
 }
 
-// Helper function to parse the data fetched from the SQL database
+// Function to parse the data fetched from the SQL database
 // into a format that is faster and easier to use in the algorithm,
-// and also valuate each recipe
+// and also valuate each recipe and find the cheapest price and store
 function parseAndValuateFetchedRecipes(data) {
     data.sort((a, b) => a.id - b.id);
 
@@ -276,7 +256,10 @@ function parseAndValuateFetchedRecipes(data) {
         if (recipeId !== currentId) {
             if (currentId !== null) {
                 const valuatedRecipe = valuateRecipe(ingredientsToValuate);
-                parsedDict[currentId] = valuatedRecipe;
+                parsedDict[currentId] = {
+                    recipeName: ingredientsToValuate[0].recipeName,
+                    ingredients: valuatedRecipe
+                };
             }
             currentId = recipeId;
             ingredientsToValuate = [];
@@ -299,7 +282,10 @@ function parseAndValuateFetchedRecipes(data) {
 
     if (currentId !== null) {
         const valuatedRecipe = valuateRecipe(ingredientsToValuate);
-        parsedDict[currentId] = valuatedRecipe;
+        parsedDict[currentId] = {
+            recipeName: ingredientsToValuate[0].recipeName,
+            ingredients: valuatedRecipe
+        };
     }
 
     return parsedDict;
@@ -356,7 +342,9 @@ async function runAlgorithm(excludes = [], amount = 1, budgetMin = 0, budgetMax 
         let currentBestRankingPrice = Infinity;
 
         // Loop throughg each recipe
-        for (const [recipeID, recipeIngredients] of Object.entries(recipes)) {
+        for (const [recipeID, recipeData] of Object.entries(recipes)) {
+            const recipeName = recipeData.recipeName;
+            const recipeIngredients = recipeData.ingredients;
 
             // Stop diplicates
             if (recommendedIDs.includes(recipeID)) {
@@ -369,10 +357,14 @@ async function runAlgorithm(excludes = [], amount = 1, budgetMin = 0, budgetMax 
             }
 
             let notPricedCount = 0;
+            let skippedCount = 0;
+            let belowMatchIndexThresholdCount = 0;
             let isPriced = true;
             let recipeIngredientsArr = [];
             let totalPrice = 0;
             let rankingPrice = 0;
+            let matchScoreSum = 0;
+            let matchScoreCount = 0;
 
             // Loop through each ingredient in the recipe
             for (const ingredient of recipeIngredients) {
@@ -382,6 +374,7 @@ async function runAlgorithm(excludes = [], amount = 1, budgetMin = 0, budgetMax 
                     notPricedCount++;
                     if (notPricedCount > notPricedIngredientsAllowed) {
                         isPriced = false;
+                        totalPrice += notPricedPenalty;
                         break;
                     }
                     currentIngredient = {
@@ -389,15 +382,18 @@ async function runAlgorithm(excludes = [], amount = 1, budgetMin = 0, budgetMax 
                         skipped: false,
                         priced: false,
                         belowMatchIndex: false,
-                        variants: ingredient.variants
+                        matchIndex: ingredient.match
                     }
                     recipeIngredientsArr.push(currentIngredient);
                     continue;
 
                 }
 
+                // If below match index threshold
                 if (ingredient.match < MinimumMatchIndex) {
                     notPricedCount++;
+                    belowMatchIndexThresholdCount++;
+                    totalPrice += notPricedPenalty;
                     if (notPricedCount > notPricedIngredientsAllowed) {
                         isPriced = false;
                         break;
@@ -407,7 +403,7 @@ async function runAlgorithm(excludes = [], amount = 1, budgetMin = 0, budgetMax 
                         skipped: false,
                         priced: false,
                         belowMatchIndex: true,
-                        variants: ingredient.variants
+                        matchIndex: ingredient.match
                     }
                     recipeIngredientsArr.push(currentIngredient);
                     continue;
@@ -415,11 +411,12 @@ async function runAlgorithm(excludes = [], amount = 1, budgetMin = 0, budgetMax 
 
                 // Checking if the ingredient was skipped due to being a basic ingredient
                 if (ingredient.skipped) {
+                    skippedCount++;
                     currentIngredient = {
                         recipeIngredient: ingredient.recipeIngredient,
                         skipped: true,
                         priced: true,
-                        belowMatchIndex: false,
+                        belowMatchIndex: false
                     }
                     recipeIngredientsArr.push(currentIngredient);
                     continue;
@@ -450,6 +447,10 @@ async function runAlgorithm(excludes = [], amount = 1, budgetMin = 0, budgetMax 
                 totalPrice += ingredient.price;
                 rankingPrice += ingredient.price * (1 + memoryScore);
 
+                // Increse sum of match score/index to help with overall match score
+                matchScoreSum += ingredient.match;
+                matchScoreCount++;
+
                 // add the ingredient object to ingredients
                 recipeIngredientsArr.push(currentIngredient);
             }
@@ -459,12 +460,23 @@ async function runAlgorithm(excludes = [], amount = 1, budgetMin = 0, budgetMax 
                 continue;
             }
 
+            let confidenceScore = 0;
+            if (matchScoreCount > 0) {
+                confidenceScore = matchScoreSum / matchScoreCount;
+            }
+
             if ((rankingPrice < currentBestRankingPrice) && (budgetMin <= totalPrice) && (totalPrice <= budgetMax)) {
                 recipeFound = true;
                 currentBestRankingPrice = rankingPrice;
                 CurrentBestRecipe = {
                     id: recipeID,
+                    name: recipeName,
                     price: totalPrice,
+                    confidenceScore: confidenceScore,
+                    rankingPrice: rankingPrice,
+                    notPricedCount: notPricedCount,
+                    skippedCount: skippedCount,
+                    belowMatchThresholdCount: belowMatchIndexThresholdCount,
                     ingredients: recipeIngredientsArr 
                 };
             }

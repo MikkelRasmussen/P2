@@ -39,12 +39,41 @@ function getMemoryScore(name) {
     }
 }
 
-// Helper function to valuate a recipe
-function valuateRecipe(ingredients) {
-    let current_recipe_ingredient = "";
+// Ingredients to skip
+const basicIngredients = [
+    "water", "boiling water", "cold water",
+    "salt", "sea salt", "kosher salt",
+    "pepper", "black pepper", "peppercorns", "whole black peppercorns",
+    "cayenne pepper", "chili powder", "chilli powder", "hot chilli powder",
+    "red chilli powder", "red pepper flakes",
+    "sugar", "vanilla sugar",
+    "olive oil", "extra virgin olive oil", "vegetable oil",
+    "sunflower oil", "rapeseed oil", "canola oil", "oil",
+    "butter", "unsalted butter", "salted butter", "melted butter",
+    "flour", "plain flour", "all purpose flour", "white flour", "cornstarch",
+    "baking powder", "bicarbonate of soda",
+    "paprika", "smoked paprika", "sweet smoked paprika",
+    "curry powder", "cumin", "ground cumin",
+    "cinnamon", "ground cinnamon", "nutmeg", "ground nutmeg",
+    "oregano", "dried oregano", "basil",
+    "thyme", "rosemary",
+    "allspice", "ground allspice",
+    "vinegar", "mustard", "dijon mustard",
+    "tomato ketchup", "mayonnaise",
+    "chicken stock", "chicken stock cube", "chicken bouillon powder",
+    "beef stock", "beef stock cubes", "beef stock concentrate",
+    "vegetable stock", "vegetable stock cube", "bouillon cubes",
+];
 
-    for (const ingredient of ingredients) {
-            let recipe_ingredient = ingredient.current_recipe_ingredient;
+// Helper function to valuate a recipe.
+// THIS FUNCTION IS NOT DONE YET!
+// But it will return a dictionary of the recipe with cheapest price from cheapest store.
+function valuateRecipe(recipeToValuate) {
+    let current_recipe_ingredient = "";
+    let valuatedRecipe = {}
+
+    for (const entry of recipeToValuate) {
+            let recipe_ingredient = entry.current_recipe_ingredient;
             if (current_recipe_ingredient != recipe_ingredient) {
                 current_recipe_ingredient = recipe_ingredient;
                 let recipeName = null;
@@ -72,7 +101,7 @@ function valuateRecipe(ingredients) {
 
 // Helper function to parse the data fetched from the SQL database
 // into a format that is faster and easier to use in the algorithm
-function parseFetchedData(data) {
+function parseAndValuateFetchedRecipes(data) {
     const parsedDict = {};
 
     let currentId = null;
@@ -114,9 +143,9 @@ function parseFetchedData(data) {
 }
 
 // --------  THE ALGORITHM --------
-async function runAlgorithm(excludes = [], amount = 1, budgetMin = 0, budgetMax = 9999, memoryScores = {}) {
 
-    // Fetching recipe data
+async function runAlgorithm(excludes = [], amount = 1, budgetMin = 0, budgetMax = 9999, memoryScores = {}) {
+    // Fetching raw recipe data
     var recipes = [];
     try {
         const { rows } = await pool.query(`
@@ -133,35 +162,13 @@ async function runAlgorithm(excludes = [], amount = 1, budgetMin = 0, budgetMax 
         return undefined
     }
 
-    // Ingredients to skip
-    const basicIngredients = [
-        "water", "boiling water", "cold water",
-        "salt", "sea salt", "kosher salt",
-        "pepper", "black pepper", "peppercorns", "whole black peppercorns",
-        "cayenne pepper", "chili powder", "chilli powder", "hot chilli powder",
-        "red chilli powder", "red pepper flakes",
-        "sugar", "vanilla sugar",
-        "olive oil", "extra virgin olive oil", "vegetable oil",
-        "sunflower oil", "rapeseed oil", "canola oil", "oil",
-        "butter", "unsalted butter", "salted butter", "melted butter",
-        "flour", "plain flour", "all purpose flour", "white flour", "cornstarch",
-        "baking powder", "bicarbonate of soda",
-        "paprika", "smoked paprika", "sweet smoked paprika",
-        "curry powder", "cumin", "ground cumin",
-        "cinnamon", "ground cinnamon", "nutmeg", "ground nutmeg",
-        "oregano", "dried oregano", "basil",
-        "thyme", "rosemary",
-        "allspice", "ground allspice",
-        "vinegar", "mustard", "dijon mustard",
-        "tomato ketchup", "mayonnaise",
-        "chicken stock", "chicken stock cube", "chicken bouillon powder",
-        "beef stock", "beef stock cubes", "beef stock concentrate",
-        "vegetable stock", "vegetable stock cube", "bouillon cubes",
-    ];
+    // Parsing raw data into faster and easier format
+    recipes = parseAndValuateFetchedRecipes(recipes)
 
     const results = {};
     const recipesNotPriced = {};
 
+    // EVERYTHING BELOW IS NOT UP TO DATE!!!
     for (let i = 0; i < amount; i++) {
         const candidates = {};
         let cheapestCandidatePrice = 999999;
@@ -171,25 +178,6 @@ async function runAlgorithm(excludes = [], amount = 1, budgetMin = 0, budgetMax 
 
         let current_id = recipes[0].id;
         current_ingredients = []
-
-        for (const entry of database) {
-            const recipeId = entry.id;
-
-            if (excludes.includes(recipeId) || name in results) {
-                continue;
-            }
-
-            if (recipeId != current_entry) {
-                current_id = mealID;
-                current_ingredients = {}
-            }
-
-            const recipeName = entry.name;
-            const ingredient = entry.ingredient;
-            const measurement = entry.measurement;
-            
-            let database = parseSQLList(recipes)
-        }
 
         for (const entry of database) {
             const recipeId = entry.id;

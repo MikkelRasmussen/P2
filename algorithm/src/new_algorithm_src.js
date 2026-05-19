@@ -2,8 +2,8 @@
 
 // ----------- PARAMETER DASHBOARD (fake header) -----------
 
-const parameterAmountOfRecipes = 2; // Amount of recipes to recommend
-const parameterBudgetMinimum = 75; // Minimum budget
+const parameterAmountOfRecipes = 1; // Amount of recipes to recommend
+const parameterBudgetMinimum = 45; // Minimum budget
 const parameterBudgetMaximum = 9999; // Maximum budget
 const parameterMemoryScore = {}; // Memory score to personalise recommendations for the user
 const parameterExcludes = [];
@@ -375,6 +375,7 @@ async function runAlgorithm(excludes = [], amount = 1, budgetMin = 0, budgetMax 
                     if (notPricedCount > notPricedIngredientsAllowed) {
                         isPriced = false;
                         totalPrice += notPricedPenalty;
+                        rankingPrice += notPricedPenalty;
                         break;
                     }
                     currentIngredient = {
@@ -386,7 +387,6 @@ async function runAlgorithm(excludes = [], amount = 1, budgetMin = 0, budgetMax 
                     }
                     recipeIngredientsArr.push(currentIngredient);
                     continue;
-
                 }
 
                 // If below match index threshold
@@ -394,6 +394,7 @@ async function runAlgorithm(excludes = [], amount = 1, budgetMin = 0, budgetMax 
                     notPricedCount++;
                     belowMatchIndexThresholdCount++;
                     totalPrice += notPricedPenalty;
+                    rankingPrice += notPricedPenalty;
                     if (notPricedCount > notPricedIngredientsAllowed) {
                         isPriced = false;
                         break;

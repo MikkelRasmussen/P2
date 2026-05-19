@@ -8,10 +8,10 @@ const parameterBudgetMaximum = 9999; // Maximum budget
 const parameterMemoryScore = {}; // Memory score to personalise recommendations for the user
 const parameterExcludes = [];
 
-// --------------------- CODE VARIABLES --------------------
+// ---------------------- ADJUSTABLES ----------------------
 
 // Amount of ingredients in a recipe allowed to not be priced.
-const notPricedIngredientsAllowed = 1;
+const notPricedIngredientsAllowed = 2;
 
 // Minimum matching index allowed for an ingredient.
 // If match is below, it will count as "not priced".
@@ -312,7 +312,10 @@ function getMemoryScore(name, memoryScores) {
 
 // Main function to run the algorithm
 async function runAlgorithm(excludes = [], amount = 1, budgetMin = 0, budgetMax = 9999, memoryScores = {}) {
+    console.time("   - TIME ELAPSED:");
+    console.log("\n------------------------------\nALGORITHM INITIATED")
     // Fetching raw recipe data
+    console.time("Time spent on fetching and parsing:")
     let recipes_raw = await fetchData();
     if (recipes_raw === undefined) {
         console.log("FAILED TO FETCH RECIPES FROM SQL! \nSHUTTING DOWN ALGORITHM");
@@ -328,13 +331,17 @@ async function runAlgorithm(excludes = [], amount = 1, budgetMin = 0, budgetMax 
         console.log("FAILED TO PARSE RECIPES FROM SQL! \nSHUTTING DOWN ALGORITHM");
         process.exit(1);
     }
+    console.timeEnd("Time spent on fetching and parsing:")
 
     // Start of algorithm
     const results = [];
     const recommendedIDs = [];
 
+    let notPricedDebug;
+
     // Loop through amount of recipes needed
     for (let i = 0; i < amount; i++) {
+        notPricedDebug = 0;
 
         let CurrentBestRecipe = null;
         let recipeFound = false;
@@ -458,6 +465,7 @@ async function runAlgorithm(excludes = [], amount = 1, budgetMin = 0, budgetMax 
 
             // If failed to be priced (if exceeding the threshold), skip the whole recipe
             if (!isPriced) {
+                notPricedDebug++;
                 continue;
             }
 
@@ -488,18 +496,23 @@ async function runAlgorithm(excludes = [], amount = 1, budgetMin = 0, budgetMax 
         }
     }
 
+    let totalRecipesInSQL = 556;
+    let successRate = ((totalRecipesInSQL - notPricedDebug) / totalRecipesInSQL * 100)
+    let amountOfResults = results.length
+    console.log("ALGORITHM FINISHED")
+    console.timeEnd("   - TIME ELAPSED:");
+    console.log(`   - RECIPES FOUND: ${amountOfResults}/${amount}`)
+    console.log(`   - PRICING SUCCESS RATE: ${successRate.toFixed(2)}%`)
+    console.log("------------------------------\n")
+
     return results;
 }
-
-
-
 
 
 app.get("/recommend", async (req, res) => {
     const results = await runAlgorithm(parameterExcludes, parameterAmountOfRecipes, parameterBudgetMinimum, parameterBudgetMaximum, parameterMemoryScore);
     res.json(results);
 })
-
 
 const PORT = 3000;
 app.listen(PORT, async () => {

@@ -4,7 +4,7 @@ const {
     priceRecipeIngredients,
     MIN_PRICED_INGREDIENT_PERCENT,
     computePriorityMultiplier,
-} = require('./pricing.service');
+} = require('./pricingService');
 
 const EXCLUDED_CATEGORIES = new Set(['dessert']);
 

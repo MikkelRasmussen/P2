@@ -1,6 +1,6 @@
 const {
     recommendWithMetadata,
-} = require('../services/recommendation.service');
+} = require('../services/recommendationService');
 
 const DEFAULT_BUDGET_MIN = 45;
 const DEFAULT_BUDGET_MAX = 9999;

@@ -4,8 +4,8 @@ const cors = require('cors');
 require('dotenv').config({ path: path.join(__dirname, '..', '.env') });
 
 const registerRoutes = require('./routes');
-const { clearCategoryCache } = require('./services/recommendation.service');
-const { clearValuatedCache } = require('./services/pricing.service');
+const { clearCategoryCache } = require('./services/recommendationService');
+const { clearValuatedCache } = require('./services/pricingService');
 
 clearValuatedCache();
 clearCategoryCache();

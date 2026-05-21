@@ -1,5 +1,5 @@
-const registerRecommendRoutes = require('./recommend.routes');
-const registerPricesRoutes = require('./prices.routes');
+const registerRecommendRoutes = require('./recommendRoutes');
+const registerPricesRoutes = require('./pricesRoutes');
 
 function registerRoutes(app) {
     registerRecommendRoutes(app);

@@ -1,0 +1,1 @@
+{"success":0,"failed":1,"total":1,"results":[],"errors":[{"endpoint":"api.sallinggroup.com/v1/'recommendations/most-bought/nettoplus/feed'","error":"Failed to fetch data from api.sallinggroup.com/v1/'recommendations/most-bought/nettoplus/feed': Request failed with status code 404","status":"failed"}],"timeStamp":1776671038803}

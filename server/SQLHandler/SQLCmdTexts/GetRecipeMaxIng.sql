@@ -1,0 +1,1 @@
+SELECT DISTINCT recipe, COUNT(DISTINCT ingredient) FROM "Ingredients" GROUP BY recipe

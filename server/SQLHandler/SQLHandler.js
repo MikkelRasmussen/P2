@@ -3,9 +3,6 @@ var ingMap = require('./mapping_ingredienser.json');
 var mesMap = require('./mapping_måling.json');
 var cutoutMap = require('./ingredientCutoutKeywords.json');
 const fs = require('node:fs');
-const { exec } = require('child_process');
-const e = require('express');
-const { promises } = require('node:dns');
 //https://www.w3schools.com/nodejs/nodejs_mysql.asp
 //https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Promise/Promise
 //https://stackoverflow.com/questions/9205496/how-to-make-connection-to-postgres-via-node-js

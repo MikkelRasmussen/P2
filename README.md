@@ -1,5 +1,7 @@
 # Mealplanner
 
+Live demo: https://p2.vecto.dk
+
 ## Project structure
 
 ```
